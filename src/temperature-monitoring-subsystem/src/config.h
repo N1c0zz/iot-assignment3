@@ -11,7 +11,7 @@ extern const int MQTT_SERVER_PORT;
 extern const char* MQTT_CLIENT_ID_PREFIX;
 extern const char* MQTT_TOPIC_TEMPERATURE;
 extern const char* MQTT_TOPIC_STATUS;
-// extern const char* MQTT_TOPIC_CONFIG_F;
+extern const char* MQTT_TOPIC_CONFIG_F;
 
 // --- Configurazioni Sensore ---
 #define TEMP_SENSOR_PIN 4 // Tipicamente GPIO1 per A0 su ESP32 Arduino core

@@ -10,6 +10,9 @@ bool isMQTTConnected();
 void mqttLoop(); // Deve essere chiamata regolarmente
 bool publishTemperature(float temperature);
 bool publishStatus(const char* statusMessage);
-// void setMqttCallback(MQTT_CALLBACK_SIGNATURE); // Per futura implementazione
+// Funzione per ottenere il nuovo intervallo di campionamento ricevuto via MQTT
+// Ritorna 0 se nessun nuovo intervallo è stato ricevuto dall'ultima chiamata,
+// altrimenti ritorna il nuovo intervallo.
+unsigned long getNewSamplingIntervalMs();
 
 #endif // MQTT_MANAGER_H

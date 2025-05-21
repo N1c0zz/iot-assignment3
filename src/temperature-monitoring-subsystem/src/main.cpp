@@ -14,6 +14,7 @@ unsigned long lastTempSampleTime = 0;
 unsigned long lastMqttAttemptTime = 0;
 unsigned long lastWiFiAttemptTime = 0;
 float currentTemperature = 0.0;
+// Inizializza con il default da config.h, ma verrà sovrascritto se arriva un comando MQTT
 unsigned long currentSamplingIntervalMs = TEMP_SAMPLE_INTERVAL_DEFAULT_MS;
 
 
@@ -42,16 +43,24 @@ void loop() {
     mqttLoop();
   }
 
+  // Controlla se è stato ricevuto un nuovo intervallo di campionamento
+  unsigned long newInterval = getNewSamplingIntervalMs(); // Da mqtt_manager
+  if (newInterval > 0) {
+      currentSamplingIntervalMs = newInterval;
+      Serial.print("Main: Intervallo di campionamento aggiornato dal Control Unit a: ");
+      Serial.print(currentSamplingIntervalMs);
+      Serial.println(" ms");
+
   switch (currentState) {
     case STATE_INITIALIZING:
       Serial.println("FSM: STATE_INITIALIZING -> Tentativo connessione WiFi");
-      indicateWifiConnecting();
+      indicateWifiConnecting(); 
       if (connectWiFi()) {
         currentState = STATE_WIFI_CONNECTED;
         Serial.println("FSM: WiFi Connesso -> STATE_WIFI_CONNECTED");
       } else {
         Serial.println("FSM: WiFi Connessione iniziale fallita -> STATE_NETWORK_ERROR");
-        indicateNetworkError();
+        indicateNetworkError(); 
         currentState = STATE_NETWORK_ERROR;
         lastWiFiAttemptTime = currentTime;
       }
@@ -59,7 +68,7 @@ void loop() {
 
     case STATE_WIFI_CONNECTED:
       Serial.println("FSM: STATE_WIFI_CONNECTED -> Tentativo connessione MQTT");
-      indicateMqttConnecting();
+      indicateMqttConnecting(); 
       currentState = STATE_MQTT_CONNECTING;
       lastMqttAttemptTime = 0;
       break;
@@ -67,11 +76,11 @@ void loop() {
     case STATE_MQTT_CONNECTING:
       if (isMQTTConnected()) {
         Serial.println("FSM: MQTT Connesso -> STATE_OPERATIONAL");
-        indicateOperational();
+        indicateOperational(); 
         currentState = STATE_OPERATIONAL;
-      } else if (currentTime - lastMqttAttemptTime >= MQTT_RECONNECT_INTERVAL_MS) {  // Attendo un intervallo di tempo per provare a instaurare MQTT
+      } else if (currentTime - lastMqttAttemptTime >= MQTT_RECONNECT_INTERVAL_MS) {
         Serial.println("FSM: Riprovo connessione MQTT...");
-        indicateMqttConnecting();
+        indicateMqttConnecting(); 
         if (!connectMQTT()) {
              Serial.println("FSM: Tentativo MQTT fallito, attendo prossimo intervallo.");
         }
@@ -79,22 +88,23 @@ void loop() {
       }
       if (!isWiFiConnected()) {
         Serial.println("FSM: WiFi perso durante tentativo MQTT -> STATE_NETWORK_ERROR");
-        indicateNetworkError();
+        indicateNetworkError(); 
         currentState = STATE_NETWORK_ERROR;
         lastWiFiAttemptTime = currentTime;
       }
       break;
 
     case STATE_OPERATIONAL:
-      indicateOperational();
+      indicateOperational(); 
       if (!isWiFiConnected() || !isMQTTConnected()) {
         Serial.println("FSM: Connessione persa (WiFi o MQTT) -> STATE_NETWORK_ERROR");
-        indicateNetworkError();
+        indicateNetworkError(); 
         currentState = STATE_NETWORK_ERROR;
         lastWiFiAttemptTime = currentTime;
         break;
       }
-      if (currentTime - lastTempSampleTime >= currentSamplingIntervalMs) {
+      // Usa currentSamplingIntervalMs che potrebbe essere stato aggiornato
+      if (currentTime - lastTempSampleTime >= currentSamplingIntervalMs) { 
         currentState = STATE_SAMPLING_TEMPERATURE;
         Serial.println("FSM: -> STATE_SAMPLING_TEMPERATURE");
       }
@@ -102,7 +112,6 @@ void loop() {
 
     case STATE_SAMPLING_TEMPERATURE:
       Serial.println("FSM: Campionamento temperatura...");
-      // Nessun cambio LED specifico qui, rimane OPERATIONAL finché non c'è errore
       currentTemperature = readTemperature();
       Serial.print("Temperatura: ");
       Serial.print(currentTemperature);
@@ -114,20 +123,17 @@ void loop() {
 
     case STATE_SENDING_DATA:
       Serial.println("FSM: Invio dati temperatura...");
-      // Nessun cambio LED specifico qui se l'invio ha successo
       if (publishTemperature(currentTemperature)) {
         Serial.println("FSM: Dati inviati.");
       } else {
         Serial.println("FSM: Fallito invio dati. MQTT potrebbe essere disconnesso.");
-        // Se l'invio fallisce, lo stato OPERATIONAL successivo rileverà MQTT disconnesso
-        // e imposterà indicateNetworkError()
       }
       currentState = STATE_OPERATIONAL;
       Serial.println("FSM: -> STATE_OPERATIONAL (dopo invio)");
       break;
 
     case STATE_NETWORK_ERROR:
-      indicateNetworkError();
+      indicateNetworkError(); 
       Serial.println("FSM: Errore di rete. In attesa per ritentare connessione generale...");
       if(isMQTTConnected()) disconnectMQTT();
       currentState = STATE_WAIT_RECONNECT;
@@ -136,7 +142,7 @@ void loop() {
       break;
 
     case STATE_WAIT_RECONNECT:
-      indicateNetworkError(); // Mantieni indicazione errore
+      indicateNetworkError(); 
       if (currentTime - lastWiFiAttemptTime >= WIFI_RECONNECT_INTERVAL_MS) {
         Serial.println("FSM: Fine attesa, ritento connessione WiFi (tornando a INITIALIZING)...");
         currentState = STATE_INITIALIZING;
@@ -145,9 +151,9 @@ void loop() {
 
     default:
       Serial.println("FSM: Stato sconosciuto! Ritorno a INITIALIZING.");
-      indicateNetworkError(); // Stato di errore di default
+      indicateNetworkError(); 
       currentState = STATE_INITIALIZING;
       break;
   }
   delay(100);
-}
+}}
