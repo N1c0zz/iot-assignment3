@@ -18,6 +18,8 @@ class ControlLogic:
 
         self.current_mode = MODE_AUTOMATIC
         self.system_state = STATE_NORMAL
+        self.esp_status = "UNKNOWN" # Variabile per lo stato dell'ESP (inizializzato ad UNKNOWN)
+        self.esp_last_status_data = {}
         self.current_temperature = None
         self.last_n_temperatures = deque(maxlen=N_LAST_MEASUREMENTS) # lista a dimensione fissa per le ultime n temperature rilevate
         self.avg_temp = None
@@ -29,6 +31,18 @@ class ControlLogic:
         self._initialize_state()
 
         logger.info(f"ControlLogic initialized. Mode: {self.current_mode}, State: {self.system_state}")
+
+    # Monitora lo stato dell'ESP
+    def update_esp_status(self, status, full_data_payload=None):
+        self.esp_status = status
+        if full_data_payload:
+            self.esp_last_status_data = full_data_payload
+        logger.info(f"ESP current status set to: {self.esp_status}")
+        # Qui si potrebbero implementare logiche aggiuntive:
+        # - Se status == "offline" o "unexpected_disconnect", potrei
+        #   mettere il sistema in uno stato di "attesa sensore" o notificare la dashboard.
+        # - Se status == "online", potrei resettare eventuali flag di errore relativi all'ESP.
+        # - Aggiornare la dashboard con lo stato dell'ESP.
 
     # Chiamata all'avvio (o quando gli handler sono disponibili) per impostare lo stato
     # iniziale dei dispositivi esterni
@@ -200,6 +214,7 @@ class ControlLogic:
     # Prepara un dizionario con tutti i dati rilevanti da inviare alla Dashboard (temperature, medie, stato, modo, apertura finestra)
     def get_dashboard_data(self):
         return {
+            "esp_status": self.esp_status,
             "current_temperature": self.current_temperature,
             "last_n_temperatures": list(self.last_n_temperatures),
             "average_temperature": self.avg_temp,

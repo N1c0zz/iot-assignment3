@@ -1,10 +1,9 @@
-# config.py
-
 # MQTT Configuration
-MQTT_BROKER_ADDRESS = "localhost"  # Cambia se il tuo broker è altrove
+MQTT_BROKER_ADDRESS = "localhost"
 MQTT_BROKER_PORT = 1883
-MQTT_TOPIC_TEMP_DATA = "iot/temperature/data"      # Topic da cui leggere i dati di temperatura dall'ESP
-MQTT_TOPIC_TEMP_CONTROL = "iot/temperature/control"  # Topic su cui inviare comandi (es. freq) all'ESP
+MQTT_TOPIC_TEMP_DATA = "assignment3/temperature"      # Topic da cui leggere i dati di temperatura dall'ESP
+MQTT_TOPIC_TEMP_CONTROL = "assignment3/frequency"  # Topic su cui inviare comandi (es. freq) all'ESP
+MQTT_TOPIC_ESP_STATUS = "assignment3/status" # Topic per lo stato dell'ESP
 
 # Serial Configuration
 SERIAL_PORT = "/dev/ttyUSB0"  # Linux. Su Windows potrebbe essere "COM3", "COM4", etc.
