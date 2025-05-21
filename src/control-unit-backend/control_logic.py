@@ -1,0 +1,212 @@
+import time
+from collections import deque
+import logging
+from config import (
+    T1_THRESHOLD, T2_THRESHOLD, N_LAST_MEASUREMENTS, DT_ALARM_DURATION_S,
+    SAMPLING_FREQUENCY_F1_S, SAMPLING_FREQUENCY_F2_S,
+    WINDOW_CLOSED_PERCENTAGE, WINDOW_FULLY_OPEN_PERCENTAGE,
+    MODE_AUTOMATIC, MODE_MANUAL,
+    STATE_NORMAL, STATE_HOT, STATE_TOO_HOT, STATE_ALARM
+)
+
+logger = logging.getLogger(__name__)
+
+class ControlLogic:
+    def __init__(self, mqtt_handler=None, serial_handler=None):
+        self.mqtt_handler = mqtt_handler
+        self.serial_handler = serial_handler
+
+        self.current_mode = MODE_AUTOMATIC
+        self.system_state = STATE_NORMAL
+        self.current_temperature = None
+        self.last_n_temperatures = deque(maxlen=N_LAST_MEASUREMENTS) # lista a dimensione fissa per le ultime n temperature rilevate
+        self.avg_temp = None
+        self.min_temp = None
+        self.max_temp = None
+        self.window_opening_percentage = WINDOW_CLOSED_PERCENTAGE # 0.0 to 1.0
+
+        self.too_hot_start_time = None
+        self._initialize_state()
+
+        logger.info(f"ControlLogic initialized. Mode: {self.current_mode}, State: {self.system_state}")
+
+    # Chiamata all'avvio (o quando gli handler sono disponibili) per impostare lo stato
+    # iniziale dei dispositivi esterni
+    def _initialize_state(self):
+        if self.mqtt_handler:
+            self.mqtt_handler.publish_sampling_frequency(SAMPLING_FREQUENCY_F1_S)
+        if self.serial_handler:
+            self.serial_handler.send_mode_to_lcd(
+                self.current_mode,
+                self.current_temperature,
+                self.window_opening_percentage
+            )
+            self.serial_handler.send_window_command(self.window_opening_percentage)
+
+    # Chiamato da MqttHandler quando arriva una nuova temperatura dal temperature-monitoring-subsystem
+    def process_new_temperature(self, temp_value):
+        self.current_temperature = float(temp_value)
+        self.last_n_temperatures.append(self.current_temperature)
+        self._update_stats()
+        logger.info(f"New temperature: {self.current_temperature}°C. Current mode: {self.current_mode}")
+
+        if self.current_mode == MODE_AUTOMATIC:
+            self._evaluate_automatic_mode()
+        else: # MANUAL mode
+            # Invia la temperatura aggiornata all'Arduino per il display LCD
+            if self.serial_handler:
+                self.serial_handler.send_mode_to_lcd(
+                    self.current_mode,
+                    self.current_temperature,
+                    self.window_opening_percentage
+                )
+        # Notifica sempre la dashboard (implicito, quando la dashboard fa GET /status)
+
+    # Calcola media, minimo e massimo dalle temperature in last_n_temperatures.
+    def _update_stats(self):
+        if self.last_n_temperatures:
+            self.avg_temp = sum(self.last_n_temperatures) / len(self.last_n_temperatures)
+            self.min_temp = min(self.last_n_temperatures)
+            self.max_temp = max(self.last_n_temperatures)
+        else:
+            self.avg_temp = None
+            self.min_temp = None
+            self.max_temp = None
+
+    # Gestisce la logica della modalità automatica
+    def _evaluate_automatic_mode(self):
+        if self.system_state == STATE_ALARM:
+            logger.info("System in ALARM state. Waiting for operator intervention.")
+            # Non fare nulla finché l'allarme non viene resettato
+            return
+
+        previous_state = self.system_state
+        previous_window_opening = self.window_opening_percentage
+        new_sampling_freq = None
+
+        if self.current_temperature is None:
+            logger.warning("Cannot evaluate automatic mode: current_temperature is None.")
+            return
+
+        if self.current_temperature < T1_THRESHOLD:
+            self.system_state = STATE_NORMAL
+            self.window_opening_percentage = WINDOW_CLOSED_PERCENTAGE
+            new_sampling_freq = SAMPLING_FREQUENCY_F1_S
+            self.too_hot_start_time = None # Reset timer
+        elif T1_THRESHOLD <= self.current_temperature <= T2_THRESHOLD:
+            self.system_state = STATE_HOT
+            # Proportional opening: P = 0.01 when T=T1, P=1.00 when T=T2
+            # P = (T - T1) / (T2 - T1) * (1.00 - 0.01) + 0.01
+            # Assicur0 che T2 > T1 per evitare divisione per zero
+            if T2_THRESHOLD > T1_THRESHOLD:
+                 self.window_opening_percentage = ((self.current_temperature - T1_THRESHOLD) /
+                                                (T2_THRESHOLD - T1_THRESHOLD) * (WINDOW_FULLY_OPEN_PERCENTAGE - 0.01)) + 0.01
+            else: # Caso limite T1=T2, apri a 0.01 se <= T1, altrimenti 1.0
+                 self.window_opening_percentage = 0.01 if self.current_temperature <= T1_THRESHOLD else WINDOW_FULLY_OPEN_PERCENTAGE
+
+            self.window_opening_percentage = max(0.01, min(WINDOW_FULLY_OPEN_PERCENTAGE, self.window_opening_percentage))
+            new_sampling_freq = SAMPLING_FREQUENCY_F2_S
+            self.too_hot_start_time = None # Reset timer
+        else: # T > T2
+            self.system_state = STATE_TOO_HOT
+            self.window_opening_percentage = WINDOW_FULLY_OPEN_PERCENTAGE
+            new_sampling_freq = SAMPLING_FREQUENCY_F2_S
+            if self.too_hot_start_time is None:
+                self.too_hot_start_time = time.time()
+            elif time.time() - self.too_hot_start_time >= DT_ALARM_DURATION_S:
+                self.system_state = STATE_ALARM
+                logger.warning("System entered ALARM state!")
+                # In ALARM, la finestra rimane completamente aperta come da TOO_HOT
+
+        if previous_state != self.system_state:
+             logger.info(f"System state changed: {previous_state} -> {self.system_state}")
+
+        if self.mqtt_handler and new_sampling_freq:
+            self.mqtt_handler.publish_sampling_frequency(new_sampling_freq)
+
+        if self.serial_handler:
+            if abs(previous_window_opening - self.window_opening_percentage) > 0.001: # Check for actual change
+                self.serial_handler.send_window_command(self.window_opening_percentage)
+            self.serial_handler.send_mode_to_lcd(
+                self.current_mode,
+                self.current_temperature,
+                self.window_opening_percentage
+            )
+
+    # Chiamato da api_routes.py (richiesta dalla Dashboard) o da SerialHandler (pressione pulsante Arduino)
+    def set_mode(self, mode):
+        if mode in [MODE_AUTOMATIC, MODE_MANUAL]:
+            if self.current_mode != mode:
+                self.current_mode = mode
+                logger.info(f"Mode changed to: {self.current_mode}")
+                if self.current_mode == MODE_AUTOMATIC:
+                    self._evaluate_automatic_mode() # Recalculate state and window
+                else: # Switched to MANUAL
+                    # Potrebbe essere utile inviare la frequenza F1 all'ESP
+                    if self.mqtt_handler:
+                        self.mqtt_handler.publish_sampling_frequency(SAMPLING_FREQUENCY_F1_S)
+                if self.serial_handler:
+                    self.serial_handler.send_mode_to_lcd(
+                        self.current_mode,
+                        self.current_temperature,
+                        self.window_opening_percentage
+                    )
+            return True
+        return False
+
+    # Chiamato da api_routes.py (Dashboard) o SerialHandler (potenziometro Arduino) quando in MODE_MANUAL
+    def set_manual_window_opening(self, percentage_str):
+        try:
+            percentage = float(percentage_str) / 100.0 # Assume Arduino invia 0-100
+            percentage = max(WINDOW_CLOSED_PERCENTAGE, min(WINDOW_FULLY_OPEN_PERCENTAGE, percentage))
+            if self.current_mode == MODE_MANUAL:
+                if abs(self.window_opening_percentage - percentage) > 0.001:
+                    self.window_opening_percentage = percentage
+                    logger.info(f"Manual window opening set to: {self.window_opening_percentage*100:.0f}%")
+                    if self.serial_handler:
+                        self.serial_handler.send_window_command(self.window_opening_percentage)
+                        self.serial_handler.send_mode_to_lcd(
+                            self.current_mode,
+                            self.current_temperature,
+                            self.window_opening_percentage
+                        )
+                return True
+            else:
+                logger.warning("Cannot set window opening: not in MANUAL mode.")
+                return False
+        except ValueError:
+            logger.error(f"Invalid percentage value for manual window opening: {percentage_str}")
+            return False
+
+    # Se il sistema è in STATE_ALARM, lo riporta a STATE_NORMAL (o ricalcola), resetta il timer too_hot_start_time
+    def handle_alarm_reset(self):
+        if self.system_state == STATE_ALARM:
+            self.system_state = STATE_NORMAL # O ricalcola in base alla temp corrente
+            self.too_hot_start_time = None
+            logger.info("ALARM state has been reset by operator.")
+            # Rievaluta lo stato automatico per impostare finestra e frequenza corrette
+            if self.current_mode == MODE_AUTOMATIC:
+                 self._evaluate_automatic_mode()
+            if self.serial_handler:
+                 self.serial_handler.send_mode_to_lcd(
+                    self.current_mode,
+                    self.current_temperature,
+                    self.window_opening_percentage
+                )
+            return True
+        logger.info("Alarm reset requested, but system not in ALARM state.")
+        return False
+
+    # Prepara un dizionario con tutti i dati rilevanti da inviare alla Dashboard (temperature, medie, stato, modo, apertura finestra)
+    def get_dashboard_data(self):
+        return {
+            "current_temperature": self.current_temperature,
+            "last_n_temperatures": list(self.last_n_temperatures),
+            "average_temperature": self.avg_temp,
+            "min_temperature": self.min_temp,
+            "max_temperature": self.max_temp,
+            "system_mode": self.current_mode,
+            "system_state": self.system_state,
+            "window_opening_percentage": self.window_opening_percentage * 100, # Invia come 0-100
+            "alarm_active": self.system_state == STATE_ALARM
+        }
