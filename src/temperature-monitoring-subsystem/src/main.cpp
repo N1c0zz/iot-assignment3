@@ -45,11 +45,13 @@ void loop() {
 
   // Controlla se è stato ricevuto un nuovo intervallo di campionamento
   unsigned long newInterval = getNewSamplingIntervalMs(); // Da mqtt_manager
+
   if (newInterval > 0) {
       currentSamplingIntervalMs = newInterval;
       Serial.print("Main: Intervallo di campionamento aggiornato dal Control Unit a: ");
       Serial.print(currentSamplingIntervalMs);
       Serial.println(" ms");
+  }
 
   switch (currentState) {
     case STATE_INITIALIZING:
@@ -156,4 +158,4 @@ void loop() {
       break;
   }
   delay(100);
-}}
+}
