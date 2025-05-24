@@ -19,10 +19,14 @@ private:
 
     // Stato per il debounce del bottone
     int lastButtonStateReading;
+    int debouncedButtonState;
     unsigned long lastDebounceEventTimeMs;
 
-    // Stato per il potenziometro (se si implementa "if_changed" qui)
-    // int lastPotRawValue;
+    // Membri per la media mobile del potenziometro
+    static const int POT_NUM_SAMPLES = 5; //numero di valori per la media mobile
+    int potReadings[POT_NUM_SAMPLES];
+    int potReadIndex;
+    long potTotal;
 };
 
 #endif // ARDUINO_PIN_INPUT_H

@@ -8,9 +8,14 @@ const int POTENTIOMETER_PIN = A0;
 const int MODE_BUTTON_PIN = 2;
 
 // --- LCD Configuration ---
+// Per quanto riguarda i pin, la libreria LiquidCrystal_I2C (e la libreria Wire sottostante
+// che gestisce la comunicazione I2C) sa già quali pin usare per SDA e SCL sulla scheda Arduino per cui
+// sta compilando, nel mio caso Arduino Uno:
+// SDA --> Pin A4
+// SCL --> Pin A5
 const int LCD_I2C_ADDRESS = 0x27; // o 0x3F
 const int LCD_COLUMNS = 16;
-const int LCD_ROWS = 2;
+const int LCD_ROWS = 4;
 
 // --- Servo Configuration ---
 // Questi potrebbero essere passati al costruttore dell'implementazione del servo

@@ -1,8 +1,8 @@
 #include "../api/SystemFSM.h"
 #include <Arduino.h> // Per millis() e Serial (debug)
 
-SystemFSM::SystemFSM(servoMotor& servo, UserInputSource& input, ControlUnitLink& serial)
-    : servoMotorCtrl(servo),
+SystemFSM::SystemFSM(ServoMotor& servo, UserInputSource& input, ControlUnitLink& serial)
+    : ServoMotorCtrl(servo),
       userInputCtrl(input),
       serialLinkCtrl(serial),
       currentMode(SystemOpMode::INIT),
@@ -147,7 +147,7 @@ void SystemFSM::handleStateTransition(SystemOpMode newMode) {
 void SystemFSM::onEnterInit() {
     // Serial.println(F("FSM Enter: INIT")); // Debug
     targetWindowPercentage = 0; // Finestra chiusa all'inizio
-    servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+    ServoMotorCtrl.setPositionPercentage(targetWindowPercentage);
     receivedTemperature = -999.0f; // Resetta temp
 }
 
@@ -165,7 +165,7 @@ void SystemFSM::onEnterManual() {
     // Serial.println(F("FSM Enter: MANUAL")); // Debug
     // All'ingresso in manuale, la posizione è data dal potenziometro.
     targetWindowPercentage = userInputCtrl.getPotentiometerPercentage();
-    servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+    ServoMotorCtrl.setPositionPercentage(targetWindowPercentage);
 }
 
 // --- Azioni Durante lo Stato ---
@@ -179,7 +179,7 @@ void SystemFSM::doStateActionAutomatic(FsmEvent event, int cmdValue) {
     if (event == FsmEvent::SERIAL_CMD_SET_POS) {
         if (cmdValue >= 0 && cmdValue <= 100) {
             targetWindowPercentage = cmdValue;
-            servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+            ServoMotorCtrl.setPositionPercentage(targetWindowPercentage);
             // Serial.print(F("FSM Auto: Set Pos to ")); Serial.println(targetWindowPercentage); // Debug
         }
     }
@@ -198,7 +198,7 @@ void SystemFSM::doStateActionManual(FsmEvent event, int cmdValue) {
                                                                                        // potremmo aver bisogno di una soglia percentuale dedicata.
                                                                                        // Per ora usiamo una piccola soglia sulla %
         targetWindowPercentage = potPercentage;
-        servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+        ServoMotorCtrl.setPositionPercentage(targetWindowPercentage);
         // Serial.print(F("FSM Manual: Pot Set Pos to ")); Serial.println(targetWindowPercentage); // Debug
     }
     // L'aggiornamento di receivedTemperature da SERIAL_CMD_SET_TEMP è già avvenuto.

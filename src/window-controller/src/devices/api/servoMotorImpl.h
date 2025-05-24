@@ -1,19 +1,19 @@
 #ifndef SERVO_MOTOR_IMPL_H
 #define SERVO_MOTOR_IMPL_H
 
-#include "servoMotor.h" // Interfaccia
+#include "ServoMotor.h" // Interfaccia
 #include <Arduino.h>
 #include <Servo.h>      // Libreria specifica per questa implementazione
 
-class servoMotorImpl : public servoMotor {
+class ServoMotorImpl : public ServoMotor {
 public:
-    servoMotorImpl(int pin, int minAngle, int maxAngle);
+    ServoMotorImpl(int pin, int minAngle, int maxAngle);
     void setup() override;
     void setPositionPercentage(int percentage) override;
     int getCurrentPercentage() const override;
 
 private:
-    Servo servoMotor;
+    Servo ServoMotor;
     int motorPin;
     int minAngleDegrees;
     int maxAngleDegrees;

@@ -2,7 +2,7 @@
 #define SYSTEM_FSM_H
 
 #include "config/config.h"         // Per SystemOpMode, e altre costanti FSM se necessarie
-#include "../../devices/api/servoMotor.h"    // Interfaccia
+#include "../../devices/api/ServoMotor.h"    // Interfaccia
 #include "../../devices/api/UserInputSource.h"// Interfaccia
 #include "../../devices/api/ControlUnitLink.h"// Interfaccia
 // Non includiamo LcdView qui, la FSM prenderà decisioni, il main aggiornerà l'LCD
@@ -22,7 +22,7 @@ enum class FsmEvent {
 
 class SystemFSM {
 public:
-    SystemFSM(servoMotor& servo, UserInputSource& input, ControlUnitLink& serial);
+    SystemFSM(ServoMotor& servo, UserInputSource& input, ControlUnitLink& serial);
 
     void setup();
     void run(); // Esegue un ciclo della FSM
@@ -33,7 +33,7 @@ public:
 
 private:
     // Riferimenti ai componenti esterni
-    servoMotor& servoMotorCtrl;
+    ServoMotor& ServoMotorCtrl;
     UserInputSource& userInputCtrl;
     ControlUnitLink& serialLinkCtrl;
 
