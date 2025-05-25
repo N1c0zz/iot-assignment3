@@ -1,18 +1,24 @@
 #include "../api/SystemFSM.h"
-#include <Arduino.h> // Per millis() e Serial (debug)
+#include <Arduino.h> // For millis(), Serial (for potential future debug), String, abs()
 
 SystemFSM::SystemFSM(ServoMotor& servo, UserInputSource& input, ControlUnitLink& serial)
-    : ServoMotorCtrl(servo),
-      userInputCtrl(input),
-      serialLinkCtrl(serial),
+    : servoMotorCtrl(servo), // Store reference to servo controller
+      userInputCtrl(input),   // Store reference to user input source
+      serialLinkCtrl(serial), // Store reference to serial link
       currentMode(SystemOpMode::INIT),
       targetWindowPercentage(0),
-      receivedTemperature(-999.0f) {}
+      receivedTemperature(-999.0f) // Initialize with a sentinel value for invalid temperature
+{
+    // Constructor body can be empty if all initialization is done via initializer list
+    // or in the setup() method.
+}
 
 void SystemFSM::setup() {
-    // La FSM inizia nello stato INIT. Le azioni di ingresso verranno eseguite nel primo run().
-    // I setup dei singoli componenti (servo, input, serial) sono fatti esternamente.
-    this->onEnterInit(); // Esegui subito le azioni di ingresso per INIT
+    // The FSM starts in the INIT state.
+    // Actions to be performed upon entering INIT are called here.
+    // Individual hardware components (servo, input, serial) are assumed
+    // to be set up externally before this FSM setup is called.
+    this->onEnterInit();
 }
 
 SystemOpMode SystemFSM::getCurrentMode() const {
@@ -27,69 +33,73 @@ float SystemFSM::getCurrentTemperature() const {
     return receivedTemperature;
 }
 
-
 FsmEvent SystemFSM::checkForEvents() {
-    if (currentMode == SystemOpMode::INIT) { // Caso speciale per il boot
-        // Qui assumiamo che il boot sia "immediato" una volta che la FSM parte
-        // Se ci fossero controlli di boot più lunghi, andrebbero qui.
+    // In the INIT state, the primary event expected is BOOT_COMPLETED.
+    if (currentMode == SystemOpMode::INIT) {
         return FsmEvent::BOOT_COMPLETED;
     }
 
+    // Check for a physical button press (debounced).
     if (userInputCtrl.isModeButtonPressed()) {
         return FsmEvent::MODE_BUTTON_PRESSED;
     }
 
+    // If a serial command is available, it will be processed by processSerialCommand,
+    // which will then determine the specific FsmEvent.
+    // Returning NONE here means checkForEvents itself doesn't fully parse serial commands,
+    // but signals that serial input should be checked.
     if (serialLinkCtrl.commandAvailable()) {
-        // La logica per parsare il comando e determinare l'evento specifico
-        // (SET_POS, SET_TEMP, MODE_AUTO, MODE_MANUAL) avverrà in processSerialCommand
-        // che viene chiamato se questo blocco è vero. Per ora, il semplice fatto che
-        // un comando sia disponibile è sufficiente per triggerare il suo processamento.
-        // Lo modificheremo in processSerialCommand.
-        return FsmEvent::NONE; // processSerialCommand si occuperà di settare l'evento corretto
+        return FsmEvent::NONE; // Signal to check serial, actual event determined later
     }
-    return FsmEvent::NONE;
+
+    return FsmEvent::NONE; // No other direct events detected this cycle.
 }
 
 void SystemFSM::processSerialCommand(const String& command, FsmEvent& outEvent, int& outCmdValue) {
-    outEvent = FsmEvent::NONE; // Default a nessun evento valido dal comando
-    outCmdValue = 0;
+    outEvent = FsmEvent::NONE; // Default to no specific event from this command
+    outCmdValue = 0;           // Default command value
 
     if (command.startsWith(F("SET_POS:"))) {
         outEvent = FsmEvent::SERIAL_CMD_SET_POS;
         outCmdValue = command.substring(8).toInt();
     } else if (command.startsWith(F("TEMP:"))) {
         outEvent = FsmEvent::SERIAL_CMD_SET_TEMP;
-        // La conversione a float viene fatta dopo, qui passiamo un placeholder o potremmo non passare value
-        // Per ora, il float lo aggiorniamo direttamente nell'azione di stato.
-        // Potremmo passare la stringa del valore se necessario.
-        // Per semplicità, aggiorniamo receivedTemperature direttamente.
+        // Temperature value is directly updated here for simplicity.
+        // The event signals that a temp update occurred.
         receivedTemperature = command.substring(5).toFloat();
     } else if (command.equalsIgnoreCase(F("MODE:AUTOMATIC"))) {
         outEvent = FsmEvent::SERIAL_CMD_MODE_AUTO;
     } else if (command.equalsIgnoreCase(F("MODE:MANUAL"))) {
         outEvent = FsmEvent::SERIAL_CMD_MODE_MANUAL;
     }
+    // Unrecognized commands result in FsmEvent::NONE.
 }
 
-
 void SystemFSM::run() {
-    FsmEvent event = checkForEvents();
-    int commandValue = 0; // Per SET_POS
+    FsmEvent event = checkForEvents(); // Check for hardware/timer events
+    int commandValue = 0;              // To store value from SET_POS command
     String serialCommandString = "";
 
-    if (serialLinkCtrl.commandAvailable()) { // Se c'è un comando, leggilo e processalo
+    // If checkForEvents indicated potential serial data, or if we always check:
+    if (serialLinkCtrl.commandAvailable()) {
         serialCommandString = serialLinkCtrl.readCommand();
         if (serialCommandString.length() > 0) {
-            // Serial.print(F("FSM RX: ")); Serial.println(serialCommandString); // Debug
-            processSerialCommand(serialCommandString, event, commandValue);
-            // processSerialCommand aggiorna 'event' e 'commandValue'
+            // A serial command was read, parse it to determine the specific event
+            // This might override 'event' if it was NONE or another event.
+            // The order of precedence might matter if multiple events occur "simultaneously".
+            FsmEvent serialEvent; // Temporary for the parsed serial event
+            processSerialCommand(serialCommandString, serialEvent, commandValue);
+            if(serialEvent != FsmEvent::NONE) { // If serial command was valid
+                event = serialEvent; // Prioritize valid serial command event
+            }
         }
     }
 
-    // Logica di transizione di stato e azioni
+    // Main state transition and action logic
     switch (currentMode) {
         case SystemOpMode::INIT:
-            doStateActionInit(); // Può solo aspettare BOOT_COMPLETED
+            // In INIT state, only BOOT_COMPLETED event triggers a transition.
+            // No "doStateAction" for INIT as it's transient.
             if (event == FsmEvent::BOOT_COMPLETED) {
                 handleStateTransition(SystemOpMode::AUTOMATIC);
             }
@@ -103,6 +113,7 @@ void SystemFSM::run() {
                 handleStateTransition(SystemOpMode::MANUAL);
                 serialLinkCtrl.sendAckModeChange(SystemOpMode::MANUAL);
             } else {
+                // Perform actions specific to AUTOMATIC mode if no transition occurred.
                 doStateActionAutomatic(event, commandValue);
             }
             break;
@@ -115,6 +126,7 @@ void SystemFSM::run() {
                 handleStateTransition(SystemOpMode::AUTOMATIC);
                 serialLinkCtrl.sendAckModeChange(SystemOpMode::AUTOMATIC);
             } else {
+                // Perform actions specific to MANUAL mode if no transition occurred.
                 doStateActionManual(event, commandValue);
             }
             break;
@@ -122,16 +134,17 @@ void SystemFSM::run() {
 }
 
 void SystemFSM::handleStateTransition(SystemOpMode newMode) {
-    if (currentMode == newMode) return;
+    // No transition if already in the target mode.
+    if (currentMode == newMode) {
+        return;
+    }
 
-    // Serial.print(F("FSM Transition: ")); // Debug
-    // Serial.print((int)currentMode); Serial.print(" -> "); Serial.println((int)newMode);
+    currentMode = newMode; // Update to the new mode
 
-    currentMode = newMode;
-
-    // Esegui azioni di ingresso per il nuovo stato
+    // Execute entry actions for the new mode.
     switch (currentMode) {
-        case SystemOpMode::INIT: // Non dovrebbe rientrare qui dopo il boot
+        case SystemOpMode::INIT:
+            // Should not typically transition back to INIT after boot.
             onEnterInit();
             break;
         case SystemOpMode::AUTOMATIC:
@@ -143,64 +156,50 @@ void SystemFSM::handleStateTransition(SystemOpMode newMode) {
     }
 }
 
-// --- Azioni di Ingresso ---
+// --- State Entry Actions ---
 void SystemFSM::onEnterInit() {
-    // Serial.println(F("FSM Enter: INIT")); // Debug
-    targetWindowPercentage = 0; // Finestra chiusa all'inizio
-    ServoMotorCtrl.setPositionPercentage(targetWindowPercentage);
-    receivedTemperature = -999.0f; // Resetta temp
+    targetWindowPercentage = 0; // Default to closed window
+    servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+    receivedTemperature = -999.0f; // Reset/invalidate temperature
 }
 
 void SystemFSM::onEnterAutomatic() {
-    // Serial.println(F("FSM Enter: AUTOMATIC")); // Debug
-    // Quando si entra in AUTOMATICO, la posizione della finestra
-    // dovrebbe essere dettata dal Control Unit.
-    // Potrebbe essere utile che il CU invii un SET_POS subito dopo un cambio di modo.
-    // Per ora, la variabile targetWindowPercentage mantiene l'ultimo valore noto,
-    // che verrà aggiornato da un comando SET_POS.
-    // Se si arriva da MANUALE, la finestra rimane dov'era finché il CU non comanda.
+    // When entering AUTOMATIC mode, the window position is dictated by the Control Unit.
+    // The FSM doesn't change the servo position here; it waits for a SET_POS command.
+    // The 'targetWindowPercentage' retains its last value, which might be from MANUAL mode
+    // or a previous AUTOMATIC setting. This is usually fine, as a new SET_POS is expected.
 }
 
 void SystemFSM::onEnterManual() {
-    // Serial.println(F("FSM Enter: MANUAL")); // Debug
-    // All'ingresso in manuale, la posizione è data dal potenziometro.
+    // When entering MANUAL mode, immediately set window position based on potentiometer.
     targetWindowPercentage = userInputCtrl.getPotentiometerPercentage();
-    ServoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+    servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+    // Optionally, send the initial manual position to the Control Unit.
+    serialLinkCtrl.sendPotentiometerValue(targetWindowPercentage);
 }
 
-// --- Azioni Durante lo Stato ---
-void SystemFSM::doStateActionInit() {
-    // Nello stato INIT, di solito si aspetta solo che il sistema sia pronto
-    // o si eseguono controlli di inizializzazione.
-    // L'evento BOOT_COMPLETED gestisce la transizione.
-}
-
+// --- State "Do" Actions (performed while in state) ---
 void SystemFSM::doStateActionAutomatic(FsmEvent event, int cmdValue) {
+    // In AUTOMATIC mode, primarily respond to SET_POS commands.
     if (event == FsmEvent::SERIAL_CMD_SET_POS) {
-        if (cmdValue >= 0 && cmdValue <= 100) {
+        if (cmdValue >= 0 && cmdValue <= 100) { // Validate percentage
             targetWindowPercentage = cmdValue;
-            ServoMotorCtrl.setPositionPercentage(targetWindowPercentage);
-            // Serial.print(F("FSM Auto: Set Pos to ")); Serial.println(targetWindowPercentage); // Debug
+            servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
         }
     }
-    // L'aggiornamento di receivedTemperature da SERIAL_CMD_SET_TEMP è già avvenuto in processSerialCommand.
-    // Non ci sono altre azioni attive in automatico se non reagire ai comandi.
+    // Temperature updates (from SERIAL_CMD_SET_TEMP) are handled by processSerialCommand updating receivedTemperature.
 }
 
 void SystemFSM::doStateActionManual(FsmEvent event, int cmdValue) {
-    // In manuale, leggi continuamente il potenziometro
-    int potPercentage = userInputCtrl.getPotentiometerPercentage();
+    // In MANUAL mode, continuously read potentiometer and update servo if changed significantly.
+    int currentPotPercentage = userInputCtrl.getPotentiometerPercentage();
 
-    // Applica una soglia per evitare jitter se il potenziometro è "rumoroso"
-    // Questa logica di "cambiamento significativo" è importante
-    if (abs(potPercentage - targetWindowPercentage) > MANUAL_PERCENTAGE_CHANGE_THRESHOLD) { // Semplice threshold per il cambiamento percentuale
-                                                                                       // (POT_READ_CHANGE_THRESHOLD è per il raw, qui è per la %)
-                                                                                       // potremmo aver bisogno di una soglia percentuale dedicata.
-                                                                                       // Per ora usiamo una piccola soglia sulla %
-        targetWindowPercentage = potPercentage;
-        ServoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+    // Apply hysteresis or a change threshold to prevent servo jitter.
+    if (abs(currentPotPercentage - targetWindowPercentage) >= MANUAL_PERCENTAGE_CHANGE_THRESHOLD) {
+        targetWindowPercentage = currentPotPercentage;
+        servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+        // Notify Control Unit of the new potentiometer-driven position.
         serialLinkCtrl.sendPotentiometerValue(targetWindowPercentage);
-        // Serial.print(F("FSM Manual: Pot Set Pos to ")); Serial.println(targetWindowPercentage); // Debug
     }
-    // L'aggiornamento di receivedTemperature da SERIAL_CMD_SET_TEMP è già avvenuto.
+    // Temperature updates are handled by processSerialCommand.
 }
