@@ -8,7 +8,7 @@ from config.config import API_HOST, API_PORT
 from kernel.control_logic import ControlLogic
 from communication.mqtt_handler import MqttHandler
 from communication.serial_handler import SerialHandler
-from communication.api_routes import api_bp
+from api.api_routes import api_bp
 
 # --- Logging Configuration ---
 logging.basicConfig(
