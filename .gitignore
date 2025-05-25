@@ -37,4 +37,5 @@
 # VSCode
 .vscode
 .log
+*.pyc
 iot-assignment3.code-workspace
