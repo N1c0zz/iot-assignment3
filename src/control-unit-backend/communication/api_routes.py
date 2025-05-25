@@ -1,7 +1,7 @@
 # api_routes.py
 from flask import Blueprint, jsonify, request, current_app
 import logging
-from config import MODE_MANUAL, MODE_AUTOMATIC
+from config.config import MODE_MANUAL, MODE_AUTOMATIC
 
 logger = logging.getLogger(__name__)
 api_bp = Blueprint('api', __name__, url_prefix='/api')

@@ -4,18 +4,18 @@ import signal
 import sys
 import time
 
-from config import API_HOST, API_PORT
-from control_logic import ControlLogic
-from mqtt_handler import MqttHandler
-from serial_handler import SerialHandler
-from api_routes import api_bp
+from config.config import API_HOST, API_PORT
+from kernel.control_logic import ControlLogic
+from communication.mqtt_handler import MqttHandler
+from communication.serial_handler import SerialHandler
+from communication.api_routes import api_bp
 
 # --- Logging Configuration ---
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("control_unit.log"), # Log su file
+        logging.FileHandler("src/control-unit-backend/logs/control_unit.log"), # Log su file
         logging.StreamHandler(sys.stdout)       # Log su console
     ]
 )

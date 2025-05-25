@@ -3,7 +3,7 @@ import serial
 import threading
 import time
 import logging
-from config import SERIAL_PORT, SERIAL_BAUDRATE, MODE_MANUAL, MODE_AUTOMATIC
+from config.config import SERIAL_PORT, SERIAL_BAUDRATE, MODE_MANUAL, MODE_AUTOMATIC
 
 logger = logging.getLogger(__name__)
 

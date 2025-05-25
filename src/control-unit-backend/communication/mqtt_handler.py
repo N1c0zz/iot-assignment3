@@ -1,7 +1,7 @@
 import paho.mqtt.client as mqtt
 import json
 import logging
-import config
+from config.config import MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT, MQTT_TOPIC_TEMP_DATA, MQTT_TOPIC_TEMP_CONTROL
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +59,9 @@ class MqttHandler:
 
     def connect(self):
         try:
-            self.client.connect(config.MQTT_BROKER_ADDRESS, config.MQTT_BROKER_PORT, 60)
+            self.client.connect(MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT, 60)
         except ConnectionRefusedError:
-            logger.error(f"MQTT connection refused. Is the broker running at {config.MQTT_BROKER_ADDRESS}:{config.MQTT_BROKER_PORT}?")
+            logger.error(f"MQTT connection refused. Is the broker running at {MQTT_BROKER_ADDRESS}:{MQTT_BROKER_PORT}?")
             self.connected = False
         except OSError as e: # Gestisce errori di rete più generici come "No route to host"
             logger.error(f"MQTT OS error during connect: {e}")

@@ -1,7 +1,7 @@
 import time
 from collections import deque
 import logging
-from config import (
+from config.config import (
     T1_THRESHOLD, T2_THRESHOLD, N_LAST_MEASUREMENTS, DT_ALARM_DURATION_S,
     SAMPLING_FREQUENCY_F1_S, SAMPLING_FREQUENCY_F2_S,
     WINDOW_CLOSED_PERCENTAGE, WINDOW_FULLY_OPEN_PERCENTAGE,
