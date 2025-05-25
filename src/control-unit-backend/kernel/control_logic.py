@@ -50,11 +50,15 @@ class ControlLogic:
         if self.mqtt_handler:
             self.mqtt_handler.publish_sampling_frequency(SAMPLING_FREQUENCY_F1_S)
         if self.serial_handler:
-            self.serial_handler.send_mode_to_lcd(
-                self.current_mode,
-                self.current_temperature,
-                self.window_opening_percentage
-            )
+            self.serial_handler.send_system_mode(self.current_mode)
+            # Invia la temperatura iniziale se in manuale (anche se all'inizio è AUTOMATIC,
+            # questa logica è per coerenza se lo stato iniziale potesse essere MANUAL)
+            if self.current_mode == MODE_MANUAL and self.current_temperature is not None:
+                self.serial_handler.send_temperature_to_arduino(self.current_temperature)
+            
+            # Invia la posizione iniziale della finestra (calcolata in base alla modalità/stato iniziale)
+            # Questa chiamata è importante perché imposta targetWindowPercentage sull'Arduino
+            # tramite il comando SET_POS:X
             self.serial_handler.send_window_command(self.window_opening_percentage)
 
     # Chiamato da MqttHandler quando arriva una nuova temperatura dal temperature-monitoring-subsystem
@@ -67,13 +71,13 @@ class ControlLogic:
         if self.current_mode == MODE_AUTOMATIC:
             self._evaluate_automatic_mode()
         else: # MANUAL mode
-            # Invia la temperatura aggiornata all'Arduino per il display LCD
-            if self.serial_handler:
-                self.serial_handler.send_mode_to_lcd(
-                    self.current_mode,
-                    self.current_temperature,
-                    self.window_opening_percentage
-                )
+            # Invia solo la temperatura aggiornata all'Arduino (solo se in MANUALE,
+            # perché l'LCD Arduino mostra la temp solo in manuale)
+            if self.serial_handler and self.current_temperature is not None:
+                self.serial_handler.send_temperature_to_arduino(self.current_temperature)
+            # La modalità e la posizione della finestra in manuale sono gestite
+            # dall'Arduino stesso (bottone, potenziometro) o da comandi API specifici.
+            # La Control Unit non le forza qui, solo notifica la temperatura.
         # Notifica sempre la dashboard (implicito, quando la dashboard fa GET /status)
 
     # Calcola media, minimo e massimo dalle temperature in last_n_temperatures.
@@ -139,13 +143,19 @@ class ControlLogic:
             self.mqtt_handler.publish_sampling_frequency(new_sampling_freq)
 
         if self.serial_handler:
-            if abs(previous_window_opening - self.window_opening_percentage) > 0.001: # Check for actual change
-                self.serial_handler.send_window_command(self.window_opening_percentage)
-            self.serial_handler.send_mode_to_lcd(
-                self.current_mode,
-                self.current_temperature,
-                self.window_opening_percentage
-            )
+            # Invia il comando di posizione finestra se è cambiata
+            if abs(previous_window_opening - self.window_opening_percentage) > 0.001:
+                self.serial_handler.send_window_command(self.window_opening_percentage) # Es. SET_POS:X
+
+            # Invia la modalità (anche se probabilmente è già AUTOMATIC qui,
+            # ma se ci fosse un cambio di stato che implica un cambio di "sotto-modalità" futura,
+            # potrebbe essere rilevante. Per ora, è ridondante se la modalità non cambia qui.)
+            # self.serial_handler.send_system_mode(self.current_mode) # Probabilmente non serve qui se la modalità non è cambiata
+
+            # In AUTOMATIC mode, l'Arduino non mostra la temperatura inviata dalla CU sull'LCD
+            # quindi non è necessario inviare send_temperature_to_arduino.
+            # L'LCD Arduino si aggiornerà con i dati che la sua FSM interna possiede
+            # (modalità, e percentuale finestra comandata da SET_POS).
 
     # Chiamato da api_routes.py (richiesta dalla Dashboard) o da SerialHandler (pressione pulsante Arduino)
     def set_mode(self, mode):
@@ -160,11 +170,9 @@ class ControlLogic:
                     if self.mqtt_handler:
                         self.mqtt_handler.publish_sampling_frequency(SAMPLING_FREQUENCY_F1_S)
                 if self.serial_handler:
-                    self.serial_handler.send_mode_to_lcd(
-                        self.current_mode,
-                        self.current_temperature,
-                        self.window_opening_percentage
-                    )
+                    self.serial_handler.send_system_mode(new_mode)
+                    if new_mode == MODE_MANUAL and self.current_temperature is not None:
+                        self.serial_handler.send_temperature_to_arduino(self.current_temperature)
             return True
         return False
 
@@ -178,12 +186,15 @@ class ControlLogic:
                     self.window_opening_percentage = percentage
                     logger.info(f"Manual window opening set to: {self.window_opening_percentage*100:.0f}%")
                     if self.serial_handler:
-                        self.serial_handler.send_window_command(self.window_opening_percentage)
-                        self.serial_handler.send_mode_to_lcd(
-                            self.current_mode,
-                            self.current_temperature,
-                            self.window_opening_percentage
-                        )
+                        # Invia il comando di posizione finestra
+                        self.serial_handler.send_window_command(self.window_opening_percentage) # Es. SET_POS:X
+
+                        # La modalità è già MANUAL (verificato all'inizio della funzione).
+                        # Non serve inviare send_system_mode(MODE_MANUAL) di nuovo.
+
+                        # Invia la temperatura corrente per l'LCD, dato che siamo in MANUALE
+                        if self.current_temperature is not None:
+                            self.serial_handler.send_temperature_to_arduino(self.current_temperature)
                 return True
             else:
                 logger.warning("Cannot set window opening: not in MANUAL mode.")
@@ -202,11 +213,21 @@ class ControlLogic:
             if self.current_mode == MODE_AUTOMATIC:
                  self._evaluate_automatic_mode()
             if self.serial_handler:
-                 self.serial_handler.send_mode_to_lcd(
-                    self.current_mode,
-                    self.current_temperature,
-                    self.window_opening_percentage
-                )
+                # Notifica la modalità corrente (probabilmente AUTOMATIC se _evaluate_automatic_mode è stato chiamato)
+                self.serial_handler.send_system_mode(self.current_mode)
+
+                # Se la modalità dopo il reset è MANUALE (improbabile ma possibile), invia la temperatura
+                if self.current_mode == MODE_MANUAL and self.current_temperature is not None:
+                    self.serial_handler.send_temperature_to_arduino(self.current_temperature)
+
+                # _evaluate_automatic_mode (se chiamato) si sarà occupato di inviare il SET_POS
+                # Quindi, non è necessario inviare send_window_command qui di nuovo,
+                # a meno che non ci sia un caso in cui _evaluate_automatic_mode non venga chiamato
+                # ma la posizione finestra debba comunque essere comunicata.
+                # In generale, dopo un reset di allarme, si ricalcola tutto e si inviano
+                # i comandi necessari (posizione finestra, modo).
+                # La chiamata a _evaluate_automatic_mode dovrebbe già aver aggiornato la posizione
+                # della finestra e inviato il comando SET_POS.
             return True
         logger.info("Alarm reset requested, but system not in ALARM state.")
         return False

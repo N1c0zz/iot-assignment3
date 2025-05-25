@@ -4,7 +4,13 @@ import signal
 import sys
 import time
 
-from config.config import API_HOST, API_PORT
+from config.config import (
+    API_HOST, API_PORT,
+    MODE_AUTOMATIC, # Aggiunta
+    STATE_TOO_HOT,  # Aggiunta se usata nel test dell'allarme
+    T2_THRESHOLD,   # Aggiunta se usata nel test dell'allarme
+    DT_ALARM_DURATION_S # Aggiunta se usata nel test dell'allarme
+)
 from kernel.control_logic import ControlLogic
 from communication.mqtt_handler import MqttHandler
 from communication.serial_handler import SerialHandler
@@ -15,7 +21,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("src/control-unit-backend/logs/control_unit.log"), # Log su file
+        logging.FileHandler("logs/control_unit.log"), # Log su file
         logging.StreamHandler(sys.stdout)       # Log su console
     ]
 )

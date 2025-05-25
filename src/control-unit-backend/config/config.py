@@ -13,7 +13,7 @@ SERIAL_BAUDRATE = 115200       # Deve corrispondere a quello dell'Arduino
 T1_THRESHOLD = 20.0  # Gradi Celsius
 T2_THRESHOLD = 25.0  # Gradi Celsius
 N_LAST_MEASUREMENTS = 20
-DT_ALARM_DURATION_S = 300  # Secondi (5 minuti) per lo stato TOO_HOT prima dell'ALARM
+DT_ALARM_DURATION_S = 50  # Secondi per lo stato TOO_HOT prima dell'ALARM
 SAMPLING_FREQUENCY_F1_S = 60 # Secondi (1 campione al minuto)
 SAMPLING_FREQUENCY_F2_S = 10 # Secondi (1 campione ogni 10 secondi)
 

@@ -54,11 +54,12 @@ class SerialHandler:
 
 
     def _process_serial_data(self, data_line):
-        if data_line == "BTN_PRESS":
-            logger.info("Button press received from Arduino.")
-            if self.control_logic.current_mode == MODE_AUTOMATIC:
-                self.control_logic.set_mode(MODE_MANUAL)
-            else:
+        if data_line.startswith("MODE_CHANGED:"):
+            new_mode_str = data_line.split(":")[1]
+            logger.info(f"Mode change notification from Arduino: {new_mode_str}")
+            if new_mode_str == "MANUAL":
+                self.control_logic.set_mode(MODE_MANUAL) # Assumendo che set_mode gestisca il non cambiare se già in quel modo
+            elif new_mode_str == "AUTOMATIC":
                 self.control_logic.set_mode(MODE_AUTOMATIC)
         elif data_line.startswith("POT:"):
             try:
@@ -94,24 +95,18 @@ class SerialHandler:
             return False
 
     def send_window_command(self, percentage): # percentage 0.0 to 1.0
-        # Arduino si aspetta un intero 0-100 per la percentuale
-        # e un intero 0-90 per l'angolo del servo
-        # Qui inviamo l'angolo direttamente
-        angle = int(percentage * 90) # 0% -> 0 gradi, 100% -> 90 gradi
-        command = f"W{angle}"
+        percent_int = int(percentage * 100) # Converti 0.0-1.0 in 0-100 intero
+        command = f"SET_POS:{percent_int}" # Invia la percentuale
         self._send_command(command)
 
-    def send_mode_to_lcd(self, mode, temperature=None, window_level_percentage=None):
-        # Esempio di formato: "LCD:AUTO" o "LCD:MANUAL,T:22.5,W:50"
-        # window_level_percentage è 0.0-1.0, converti a 0-100 per il display
-        lcd_command = f"LCD:{mode}"
-        if mode == MODE_MANUAL:
-            if temperature is not None:
-                lcd_command += f",T:{temperature:.1f}"
-            if window_level_percentage is not None:
-                lcd_command += f",W:{int(window_level_percentage * 100)}"
-        self._send_command(lcd_command)
+    def send_system_mode(self, mode_string): # mode_string è "AUTOMATIC" o "MANUAL"
+        command = f"MODE:{mode_string.upper()}" # Assicura maiuscolo se FSM è case-sensitive
+        self._send_command(command)
 
+    def send_temperature_to_arduino(self, temperature):
+        if temperature is not None:
+            command = f"TEMP:{temperature:.1f}"
+            self._send_command(command)
 
     def stop_listening(self):
         self.is_running = False
