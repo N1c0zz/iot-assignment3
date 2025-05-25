@@ -28,6 +28,7 @@ const unsigned long BUTTON_DEBOUNCE_DELAY_MS = 50;
 
 // --- Potentiometer ---
 const int POT_READ_CHANGE_THRESHOLD = 5; // Variazione minima per registrare un cambiamento
+const int MANUAL_PERCENTAGE_CHANGE_THRESHOLD = 2;
 
 // --- Serial Communication ---
 const long SERIAL_COM_BAUD_RATE = 115200;

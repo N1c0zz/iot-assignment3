@@ -72,3 +72,9 @@ void ArduinoSerialLink::sendAckModeChange(SystemOpMode acknowledgedMode) {
     }
     // Aggiungere altri stati se necessario
 }
+
+void ArduinoSerialLink::sendPotentiometerValue(int percentage)
+{
+    Serial.print(F("POT:"));
+    Serial.println(percentage);
+}

@@ -11,7 +11,8 @@ public:
     void setup(long baudRate) override;
     bool commandAvailable() override; // Controlla se c'è un comando completo nel buffer
     String readCommand() override;    // Restituisce il comando e pulisce il buffer interno
-
+    void sendPotentiometerValue(int percentage) override;
+    
     void sendModeChangedNotification(SystemOpMode newMode) override;
     void sendAckModeChange(SystemOpMode acknowledgedMode) override;
 

@@ -193,12 +193,13 @@ void SystemFSM::doStateActionManual(FsmEvent event, int cmdValue) {
 
     // Applica una soglia per evitare jitter se il potenziometro è "rumoroso"
     // Questa logica di "cambiamento significativo" è importante
-    if (abs(potPercentage - targetWindowPercentage) > (POT_READ_CHANGE_THRESHOLD / 20) ) { // Semplice threshold per il cambiamento percentuale
+    if (abs(potPercentage - targetWindowPercentage) > MANUAL_PERCENTAGE_CHANGE_THRESHOLD) { // Semplice threshold per il cambiamento percentuale
                                                                                        // (POT_READ_CHANGE_THRESHOLD è per il raw, qui è per la %)
                                                                                        // potremmo aver bisogno di una soglia percentuale dedicata.
                                                                                        // Per ora usiamo una piccola soglia sulla %
         targetWindowPercentage = potPercentage;
         ServoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+        serialLinkCtrl.sendPotentiometerValue(targetWindowPercentage);
         // Serial.print(F("FSM Manual: Pot Set Pos to ")); Serial.println(targetWindowPercentage); // Debug
     }
     // L'aggiornamento di receivedTemperature da SERIAL_CMD_SET_TEMP è già avvenuto.

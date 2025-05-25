@@ -11,6 +11,7 @@ public:
     virtual void setup(long baudRate) = 0;
     virtual bool commandAvailable() = 0;
     virtual String readCommand() = 0; // Legge un comando completo se disponibile
+    virtual void sendPotentiometerValue(int percentage);
 
     virtual void sendModeChangedNotification(SystemOpMode newMode) = 0;
     virtual void sendAckModeChange(SystemOpMode acknowledgedMode) = 0;
