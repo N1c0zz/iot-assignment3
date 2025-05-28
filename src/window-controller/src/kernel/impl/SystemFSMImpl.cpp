@@ -1,7 +1,7 @@
-#include "../api/SystemFSM.h"
+#include "../api/SystemFSMImpl.h"
 #include <Arduino.h> // For millis(), Serial (for potential future debug), String, abs()
 
-SystemFSM::SystemFSM(ServoMotor& servo, UserInputSource& input, ControlUnitLink& serial)
+SystemFSMImpl::SystemFSMImpl(ServoMotor& servo, UserInputSource& input, ControlUnitLink& serial)
     : servoMotorCtrl(servo), // Store reference to servo controller
       userInputCtrl(input),   // Store reference to user input source
       serialLinkCtrl(serial), // Store reference to serial link
@@ -13,7 +13,7 @@ SystemFSM::SystemFSM(ServoMotor& servo, UserInputSource& input, ControlUnitLink&
     // or in the setup() method.
 }
 
-void SystemFSM::setup() {
+void SystemFSMImpl::setup() {
     // The FSM starts in the INIT state.
     // Actions to be performed upon entering INIT are called here.
     // Individual hardware components (servo, input, serial) are assumed
@@ -21,19 +21,19 @@ void SystemFSM::setup() {
     this->onEnterInit();
 }
 
-SystemOpMode SystemFSM::getCurrentMode() const {
+SystemOpMode SystemFSMImpl::getCurrentMode() const {
     return currentMode;
 }
 
-int SystemFSM::getWindowTargetPercentage() const {
+int SystemFSMImpl::getWindowTargetPercentage() const {
     return targetWindowPercentage;
 }
 
-float SystemFSM::getCurrentTemperature() const {
+float SystemFSMImpl::getCurrentTemperature() const {
     return receivedTemperature;
 }
 
-FsmEvent SystemFSM::checkForEvents() {
+FsmEvent SystemFSMImpl::checkForEvents() {
     // In the INIT state, the primary event expected is BOOT_COMPLETED.
     if (currentMode == SystemOpMode::INIT) {
         return FsmEvent::BOOT_COMPLETED;
@@ -55,7 +55,7 @@ FsmEvent SystemFSM::checkForEvents() {
     return FsmEvent::NONE; // No other direct events detected this cycle.
 }
 
-void SystemFSM::processSerialCommand(const String& command, FsmEvent& outEvent, int& outCmdValue) {
+void SystemFSMImpl::processSerialCommand(const String& command, FsmEvent& outEvent, int& outCmdValue) {
     outEvent = FsmEvent::NONE; // Default to no specific event from this command
     outCmdValue = 0;           // Default command value
 
@@ -75,7 +75,7 @@ void SystemFSM::processSerialCommand(const String& command, FsmEvent& outEvent, 
     // Unrecognized commands result in FsmEvent::NONE.
 }
 
-void SystemFSM::run() {
+void SystemFSMImpl::run() {
     FsmEvent event = checkForEvents(); // Check for hardware/timer events
     int commandValue = 0;              // To store value from SET_POS command
     String serialCommandString = "";
@@ -133,7 +133,7 @@ void SystemFSM::run() {
     }
 }
 
-void SystemFSM::handleStateTransition(SystemOpMode newMode) {
+void SystemFSMImpl::handleStateTransition(SystemOpMode newMode) {
     // No transition if already in the target mode.
     if (currentMode == newMode) {
         return;
@@ -157,20 +157,20 @@ void SystemFSM::handleStateTransition(SystemOpMode newMode) {
 }
 
 // --- State Entry Actions ---
-void SystemFSM::onEnterInit() {
+void SystemFSMImpl::onEnterInit() {
     targetWindowPercentage = 0; // Default to closed window
     servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
     receivedTemperature = -999.0f; // Reset/invalidate temperature
 }
 
-void SystemFSM::onEnterAutomatic() {
+void SystemFSMImpl::onEnterAutomatic() {
     // When entering AUTOMATIC mode, the window position is dictated by the Control Unit.
     // The FSM doesn't change the servo position here; it waits for a SET_POS command.
     // The 'targetWindowPercentage' retains its last value, which might be from MANUAL mode
     // or a previous AUTOMATIC setting. This is usually fine, as a new SET_POS is expected.
 }
 
-void SystemFSM::onEnterManual() {
+void SystemFSMImpl::onEnterManual() {
     // When entering MANUAL mode, immediately set window position based on potentiometer.
     targetWindowPercentage = userInputCtrl.getPotentiometerPercentage();
     servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
@@ -179,7 +179,7 @@ void SystemFSM::onEnterManual() {
 }
 
 // --- State "Do" Actions (performed while in state) ---
-void SystemFSM::doStateActionAutomatic(FsmEvent event, int cmdValue) {
+void SystemFSMImpl::doStateActionAutomatic(FsmEvent event, int cmdValue) {
     // In AUTOMATIC mode, primarily respond to SET_POS commands.
     if (event == FsmEvent::SERIAL_CMD_SET_POS) {
         if (cmdValue >= 0 && cmdValue <= 100) { // Validate percentage
@@ -190,7 +190,7 @@ void SystemFSM::doStateActionAutomatic(FsmEvent event, int cmdValue) {
     // Temperature updates (from SERIAL_CMD_SET_TEMP) are handled by processSerialCommand updating receivedTemperature.
 }
 
-void SystemFSM::doStateActionManual(FsmEvent event, int cmdValue) {
+void SystemFSMImpl::doStateActionManual(FsmEvent event, int cmdValue) {
     // In MANUAL mode, continuously read potentiometer and update servo if changed significantly.
     int currentPotPercentage = userInputCtrl.getPotentiometerPercentage();
 

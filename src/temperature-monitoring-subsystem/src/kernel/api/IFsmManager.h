@@ -1,5 +1,6 @@
-#ifndef FSM_MANAGER_H
-#define FSM_MANAGER_H
+// src/kernel/api/IFsmManager.h (o percorso simile)
+#ifndef IFSM_MANAGER_H
+#define IFSM_MANAGER_H
 
 /**
  * @enum SystemState
@@ -43,11 +44,41 @@ enum SystemState
   STATE_WAIT_RECONNECT
 };
 
-/**
- * @brief Global variable holding the current state of the Finite State Machine.
- * This variable is defined and managed in `main.cpp` and drives the system's
- * logic flow based on the values in the SystemState enum.
- */
-extern SystemState currentState;
+class IFsmManager {
+public:
+    virtual ~IFsmManager() {}
 
-#endif
+    /**
+     * @brief Initializes the FSM and its dependent components.
+     * Should be called once during system setup.
+     */
+    virtual void setup() = 0;
+
+    /**
+     * @brief Executes one cycle of the FSM logic.
+     * This includes checking for events, handling state transitions,
+     * and performing actions based on the current state.
+     * Should be called repeatedly in the main loop.
+     */
+    virtual void run() = 0;
+
+    /**
+     * @brief Gets the current operational state of the FSM.
+     * @return The current SystemState.
+     */
+    virtual SystemState getCurrentState() const = 0;
+
+    /**
+     * @brief Gets the last measured temperature.
+     * @return The current temperature value in Celsius.
+     */
+    virtual float getCurrentTemperature() const = 0;
+
+    /**
+     * @brief Gets the current sampling interval.
+     * @return The current sampling interval in milliseconds.
+     */
+    virtual unsigned long getCurrentSamplingInterval() const = 0;
+};
+
+#endif // IFSM_MANAGER_H

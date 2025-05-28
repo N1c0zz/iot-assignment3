@@ -15,6 +15,7 @@
 #include "devices/api/ServoMotor.h"      // Changed from ServoMotorImpl.h to ServoMotor.h
 #include "devices/api/UserInputSource.h" // Changed from ArduinoPinInput.h to UserInputSource.h
 #include "devices/api/ControlUnitLink.h" // Changed from ArduinoSerialLink.h to ControlUnitLink.h
+#include "kernel/api/ISystemFSM.h"
 
 // Implementation headers (needed only here for instantiation)
 #include "devices/api/ServoMotorImpl.h"    // Corrected path if api/impl structure
@@ -23,7 +24,7 @@
 #include "devices/api/ArduinoSerialLink.h" // Corrected path
 
 // FSM class header
-#include "kernel/api/SystemFSM.h" // Assuming FSM is in kernel/api path
+#include "kernel/api/SystemFSMImpl.h"
 
 // --- Concrete Object Instantiation ---
 // Instances of the specific hardware driver implementations.
@@ -41,10 +42,7 @@ ServoMotor* pServoMotor = &actualServo;
 LcdView* pLcdView = &actualLcd;
 UserInputSource* pUserInput = &actualUserInput;
 ControlUnitLink* pSerialLink = &actualSerialLink;
-
-// --- Finite State Machine Instance ---
-// The FSM is given references to the component interfaces it needs to control or query.
-SystemFSM stateMachine(*pServoMotor, *pUserInput, *pSerialLink);
+ISystemFSM* pStateMachine = nullptr;
 
 /**
  * @brief Setup function, runs once at an Arduino's startup.
@@ -63,7 +61,8 @@ void setup() {
     // Serial link setup was already done.
 
     // Setup the Finite State Machine. This will transition it to its initial state (e.g., INIT).
-    stateMachine.setup();
+    pStateMachine = new SystemFSMImpl(*pServoMotor, *pUserInput, *pSerialLink);
+    pStateMachine->setup();
 
     pLcdView->displayReadyMessage(); // Display "System Ready" after all initializations.
 
@@ -77,15 +76,18 @@ void setup() {
 void loop() {
     // 1. Run one cycle of the Finite State Machine.
     //    The FSM handles event detection, state transitions, and actions.
-    stateMachine.run();
+    if (pStateMachine) { // Controlla che il puntatore sia valido
+        pStateMachine->run();
+    }
 
     // 2. Update the LCD display with current information from the FSM.
-    pLcdView->update(
-        (stateMachine.getCurrentMode() == SystemOpMode::AUTOMATIC), // Current mode
-        stateMachine.getWindowTargetPercentage(),                   // Current window target
-        stateMachine.getCurrentTemperature()                        // Current temperature
-    );
-
+    if (pLcdView && pStateMachine) {
+        pLcdView->update(
+            (pStateMachine->getCurrentMode() == SystemOpMode::AUTOMATIC),       // Current mode
+            pStateMachine->getWindowTargetPercentage(),                         // Current window target
+            pStateMachine->getCurrentTemperature()                              // Current temperature
+        );
+    }
     // A small delay can be added to prevent the loop from running too fast,
     // potentially conserving a tiny bit of power or giving hardware time to respond,
     // though often not strictly necessary if all operations are non-blocking.

@@ -1,6 +1,7 @@
-#ifndef SYSTEM_FSM_H
-#define SYSTEM_FSM_H
+#ifndef SYSTEM_FSM_IMPL_H
+#define SYSTEM_FSM_IMPL_H
 
+#include "ISystemFSM.h"
 #include "config/config.h"              // For SystemOpMode enum and other FSM-related constants
 #include "../../devices/api/ServoMotor.h"       // Interface for servo control
 #include "../../devices/api/UserInputSource.h"  // Interface for button/potentiometer input
@@ -21,28 +22,33 @@ enum class FsmEvent {
 };
 
 /**
- * @class SystemFSM
+ * @class SystemFSMImpl
  * @brief Manages the state and behavior of the window controller.
  *
  * This class implements the core logic for the window controller. It depends on
  * interfaces for hardware components (servo, input, serial link), allowing for
  * flexibility in their concrete implementations.
  */
-class SystemFSM {
+class SystemFSMImpl : public ISystemFSM {
 public:
     /**
-     * @brief Constructor for the SystemFSM.
+     * @brief Constructor for the SystemFSMImpl.
      * @param servo Reference to a ServoMotor interface implementation.
      * @param input Reference to a UserInputSource interface implementation.
      * @param serial Reference to a ControlUnitLink interface implementation.
      */
-    SystemFSM(ServoMotor& servo, UserInputSource& input, ControlUnitLink& serial);
+    SystemFSMImpl(ServoMotor& servo, UserInputSource& input, ControlUnitLink& serial);
+
+    /**
+     * @brief Virtual destructor.
+     */
+    virtual ~SystemFSMImpl() {};
 
     /**
      * @brief Initializes the FSM, setting its initial state.
      *        Typically called once in the main setup().
      */
-    void setup();
+    void setup() override;
 
     /**
      * @brief Executes one cycle of the FSM logic.
@@ -50,25 +56,25 @@ public:
      *        It checks for events, processes them, handles state transitions,
      *        and performs actions based on the current state.
      */
-    void run();
+    void run() override;
 
     /**
      * @brief Gets the current operational mode of the FSM.
      * @return The current SystemOpMode (e.g., INIT, AUTOMATIC, MANUAL).
      */
-    SystemOpMode getCurrentMode() const;
+    SystemOpMode getCurrentMode() const override;
 
     /**
      * @brief Gets the FSM's current target for the window opening percentage.
      * @return The target window position as a percentage (0-100).
      */
-    int getWindowTargetPercentage() const;
+    int getWindowTargetPercentage() const override;
 
     /**
      * @brief Gets the last temperature value received by the FSM.
      * @return The last known temperature, or a sentinel value if none received/valid.
      */
-    float getCurrentTemperature() const;
+    float getCurrentTemperature() const override;
 
 private:
     // Dependencies injected via constructor (references to interface implementations)
@@ -96,4 +102,4 @@ private:
     void doStateActionManual(FsmEvent event, int cmdValue);
 };
 
-#endif // SYSTEM_FSM_H
+#endif // SYSTEM_FSM_IMPL_H
