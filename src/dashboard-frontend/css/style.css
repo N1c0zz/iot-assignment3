@@ -1,0 +1,128 @@
+/* css/style.css */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+header, footer {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+header h1 {
+    margin: 0;
+    color: #0056b3;
+}
+
+main {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+section {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+h2 {
+    color: #0056b3;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+/* Stili per il grafico */
+#temperature-chart-section {
+    /* Rimuovi height da qui se la metti sul contenitore interno */
+    /* height: 400px; */
+    position: relative;
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    /* overflow: hidden; */ /* Potrebbe non servire più qui */
+    box-sizing: border-box;
+}
+
+.chart-container { /* Stili per il nuovo div */
+    position: relative;
+    height: 350px; /* Altezza effettiva per l'area del grafico, es. 400px (sezione) - 2*15px (padding) - spazio per H2 */
+    width: 100%;
+    /* overflow: hidden; */ /* Metti overflow qui se necessario */
+}
+
+#temperatureChart {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+button {
+    padding: 10px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    margin-right: 5px;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+input[type="range"] {
+    width: 80%; /* O la larghezza che preferisci per lo slider */
+    margin-right: 10px;
+    vertical-align: middle; /* Allinea meglio con il testo/label */
+}
+
+#slider-value {
+    vertical-align: middle;
+}
+
+
+.hidden {
+    display: none !important;
+}
+
+/* Stili per gli stati */
+.state-normal { color: green; font-weight: bold; }
+.state-hot { color: orange; font-weight: bold; }
+.state-too_hot { color: red; font-weight: bold; } /* Corretto da too-hot a too_hot per coerenza con JSON */
+.state-alarm {
+    color: white;
+    background-color: red;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-weight: bold;
+    display: inline-block;
+}
+#btn-reset-alarm {
+    background-color: #dc3545;
+}
+#btn-reset-alarm:hover {
+    background-color: #c82333;
+}
+
+#manual-window-controls {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+#mode-controls button,
+#alarm-controls button {
+    min-width: 150px; /* Dai ai pulsanti di modo una larghezza minima */
+}

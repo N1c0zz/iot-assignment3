@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Temperature Monitoring - Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- USA LA CDN PER CHART.JS (TEMPORANEAMENTE O DEFINITIVAMENTE) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+    <!-- Commenta o rimuovi la riga per il file locale se usi la CDN:
+    <script src="js/lib/chart.umd.min.js"></script>
+    -->
+</head>
+<body>
+    <header>
+        <h1>Smart Temperature Monitoring Dashboard</h1>
+    </header>
+
+    <main>
+        <section id="system-status-display">
+            <h2>System Status</h2>
+            <p><strong>Current Temperature:</strong> <span id="current-temp">-</span> °C</p>
+            <p><strong>Average Temperature (last N):</strong> <span id="avg-temp">-</span> °C</p>
+            <p><strong>Min Temperature (last N):</strong> <span id="min-temp">-</span> °C</p>
+            <p><strong>Max Temperature (last N):</strong> <span id="max-temp">-</span> °C</p>
+            <p><strong>System State:</strong> <span id="system-state" class="state-normal">-</span></p>
+            <p><strong>Window Opening:</strong> <span id="window-opening">-</span> %</p>
+            <p><strong>Mode:</strong> <span id="system-mode">-</span></p>
+            <p><strong>ESP Sensor Status:</strong> <span id="esp-status">-</span></p>
+        </section>
+
+        <section id="temperature-chart-section">
+            <h2>Temperature Trend (Last N Measurements)</h2>
+            <div class="chart-container">
+                <canvas id="temperatureChart"></canvas>
+            </div>
+        </section>
+
+        <section id="controls">
+            <h2>Controls</h2>
+            <div id="mode-controls">
+                <button id="btn-set-auto">Set AUTOMATIC Mode</button>
+                <button id="btn-set-manual">Set MANUAL Mode</button>
+            </div>
+
+            <div id="manual-window-controls" class="hidden"> <!-- Nascosto inizialmente -->
+                <h3>Manual Window Control</h3>
+                <label for="window-slider">Window Opening (0-100%):</label>
+                <input type="range" id="window-slider" min="0" max="100" value="0">
+                <span id="slider-value">0</span>%
+                <button id="btn-set-window-manual">Set Window</button>
+            </div>
+
+            <div id="alarm-controls">
+                <button id="btn-reset-alarm" class="hidden">Reset ALARM</button> <!-- Nascosto inizialmente -->
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Embedded Systems and IoT - Assignment #03</p>
+    </footer>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
