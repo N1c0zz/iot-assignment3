@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 import logging
 import signal
 import sys
@@ -85,9 +86,10 @@ def main():
 
     # 5. Inizializza Flask App
     app = Flask(__name__)
+    CORS(app)
     app.control_logic_instance = control_logic_instance # Rendi control_logic accessibile alle route
     app.register_blueprint(api_bp)
-    flask_app = app # Salva per signal_handler
+    # flask_app = app # Salva per signal_handler
 
     # Gestione spegnimento pulito
     signal.signal(signal.SIGINT, signal_handler)  # CTRL+C

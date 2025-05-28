@@ -93,6 +93,9 @@ class ControlLogic:
 
     # Gestisce la logica della modalità automatica
     def _evaluate_automatic_mode(self):
+        logger.debug(f"--- Evaluating Automatic Mode ---")
+        logger.debug(f"Before eval: self.current_temperature = {self.current_temperature}, self.window_opening_percentage = {self.window_opening_percentage}")
+
         if self.system_state == STATE_ALARM:
             logger.info("System in ALARM state. Waiting for operator intervention.")
             # Non fare nulla finché l'allarme non viene resettato
@@ -136,6 +139,9 @@ class ControlLogic:
                 logger.warning("System entered ALARM state!")
                 # In ALARM, la finestra rimane completamente aperta come da TOO_HOT
 
+        logger.debug(f"After eval: new self.window_opening_percentage = {self.window_opening_percentage}")
+        logger.debug(f"Comparing: previous_window_opening ({previous_window_opening}) vs new_window_opening_percentage ({self.window_opening_percentage})")
+
         if previous_state != self.system_state:
              logger.info(f"System state changed: {previous_state} -> {self.system_state}")
 
@@ -145,7 +151,10 @@ class ControlLogic:
         if self.serial_handler:
             # Invia il comando di posizione finestra se è cambiata
             if abs(previous_window_opening - self.window_opening_percentage) > 0.001:
+                logger.info(f"AUTOMATIC MODE: Window percentage changed. Sending command for {self.window_opening_percentage*100:.0f}%")
                 self.serial_handler.send_window_command(self.window_opening_percentage) # Es. SET_POS:X
+            else:
+                logger.info(f"AUTOMATIC MODE: Window percentage NOT significantly changed. Previous: {previous_window_opening*100:.0f}%, New: {self.window_opening_percentage*100:.0f}%. No command sent.")
 
             # Invia la modalità (anche se probabilmente è già AUTOMATIC qui,
             # ma se ci fosse un cambio di stato che implica un cambio di "sotto-modalità" futura,
@@ -170,8 +179,8 @@ class ControlLogic:
                     if self.mqtt_handler:
                         self.mqtt_handler.publish_sampling_frequency(SAMPLING_FREQUENCY_F1_S)
                 if self.serial_handler:
-                    self.serial_handler.send_system_mode(new_mode)
-                    if new_mode == MODE_MANUAL and self.current_temperature is not None:
+                    self.serial_handler.send_system_mode(self.current_mode)
+                    if self.current_mode == MODE_MANUAL and self.current_temperature is not None:
                         self.serial_handler.send_temperature_to_arduino(self.current_temperature)
             return True
         return False

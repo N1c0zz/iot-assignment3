@@ -7,8 +7,12 @@ from config.config import SERIAL_PORT, SERIAL_BAUDRATE, MODE_MANUAL, MODE_AUTOMA
 
 logger = logging.getLogger(__name__)
 
+# Variabile globale per un check extra, per vedere se questo file viene ricaricato
+SERIAL_HANDLER_FILE_VERSION = "DEBUG_V1.0" # Cambia questo se modifichi il file
+
 class SerialHandler:
     def __init__(self, control_logic_instance):
+        logger.info(f"SerialHandler Initialized - Version: {SERIAL_HANDLER_FILE_VERSION}") # Log della versione
         self.control_logic = control_logic_instance
         self.ser = None
         self.is_running = False
@@ -35,44 +39,58 @@ class SerialHandler:
     def _listen_for_data(self):
         logger.info("Serial listening thread started.")
         while self.is_running and self.ser and self.ser.is_open:
+            line = "" # Inizializza line per il blocco except UnicodeDecodeError
             try:
                 if self.ser.in_waiting > 0:
                     line = self.ser.readline().decode('utf-8').strip()
                     if line:
                         logger.debug(f"Received from Arduino: '{line}'")
-                        self._process_serial_data(line)
-            except serial.SerialException as e:
-                logger.error(f"Serial error during listening: {e}. Stopping listener.")
+                        self._process_serial_data(line) # Chiamata a _process_serial_data
+            except serial.SerialException as e_ser:
+                logger.error(f"Serial error during listening: {e_ser}. Stopping listener.", exc_info=True) # Aggiunto exc_info
                 self.is_running = False
-                break
-            except UnicodeDecodeError:
-                logger.warning(f"Could not decode serial data: {line}")
-            except Exception as e:
-                logger.error(f"Unexpected error in serial listening loop: {e}")
-            time.sleep(0.05) # Small delay to prevent high CPU usage
+                break # Esce dal loop while
+            except UnicodeDecodeError as e_uni:
+                logger.warning(f"Could not decode serial data (raw: {line if line else 'N/A'}): {e_uni}", exc_info=True) # Aggiunto exc_info
+            except NameError as ne: # Cattura specificamente NameError
+                logger.error(f"CRITICAL NAME_ERROR in _listen_for_data or _process_serial_data: {ne}", exc_info=True)
+                # Non fermare il loop per un NameError qui, ma loggalo con forza
+            except Exception as e_gen:
+                logger.error(f"Unexpected error in serial listening loop: {e_gen}", exc_info=True) # Aggiunto exc_info
+                # Considera se fermare il loop per errori generici: self.is_running = False
+            time.sleep(0.05)
         logger.info("Serial listening thread stopped.")
 
 
     def _process_serial_data(self, data_line):
-        if data_line.startswith("MODE_CHANGED:"):
-            new_mode_str = data_line.split(":")[1]
-            logger.info(f"Mode change notification from Arduino: {new_mode_str}")
-            if new_mode_str == "MANUAL":
-                self.control_logic.set_mode(MODE_MANUAL) # Assumendo che set_mode gestisca il non cambiare se già in quel modo
-            elif new_mode_str == "AUTOMATIC":
-                self.control_logic.set_mode(MODE_AUTOMATIC)
-        elif data_line.startswith("POT:"):
-            try:
-                value_str = data_line.split(":")[1]
-                # Qui value_str è la percentuale 0-100 letta dal potenziometro
-                # La logica in control_logic.set_manual_window_opening si aspetta una stringa numerica
-                self.control_logic.set_manual_window_opening(value_str)
-            except IndexError:
-                logger.warning(f"Malformed POT data from Arduino: {data_line}")
-            except Exception as e:
-                logger.error(f"Error processing POT data '{data_line}': {e}")
-        else:
-            logger.debug(f"Unknown data from Arduino: {data_line}")
+        # Inserisci un log all'inizio di questa funzione
+        logger.debug(f"SERIAL_HANDLER_DEBUG: _process_serial_data called with: '{data_line}'")
+        try:
+            if data_line.startswith("MODE_CHANGED:"):
+                # new_mode_str è locale a questo blocco if
+                new_mode_str = data_line.split(":")[1].strip() # strip() è una buona aggiunta
+                logger.info(f"Mode change notification from Arduino: {new_mode_str}")
+                if new_mode_str == "MANUAL":
+                    self.control_logic.set_mode(MODE_MANUAL)
+                elif new_mode_str == "AUTOMATIC":
+                    self.control_logic.set_mode(MODE_AUTOMATIC)
+                else:
+                    logger.warning(f"Unknown mode string '{new_mode_str}' in MODE_CHANGED data.")
+            elif data_line.startswith("POT:"):
+                # ... (codice POT invariato, ma puoi aggiungere try-except più specifici se vuoi) ...
+                try:
+                    value_str = data_line.split(":")[1]
+                    self.control_logic.set_manual_window_opening(value_str)
+                except IndexError:
+                    logger.warning(f"Malformed POT data from Arduino: {data_line}")
+                except Exception as e_pot: # Catch specifico per il blocco POT
+                    logger.error(f"Error processing POT data '{data_line}': {e_pot}", exc_info=True)
+            else:
+                logger.debug(f"Unknown data from Arduino: {data_line}")
+        except NameError as ne_proc: # Cattura NameError specificamente dentro _process_serial_data
+             logger.error(f"CRITICAL NAME_ERROR in _process_serial_data internal logic: {ne_proc}", exc_info=True)
+        except Exception as e_proc_gen: # Catch-all per _process_serial_data
+             logger.error(f"Generic error in _process_serial_data internal logic for line '{data_line}': {e_proc_gen}", exc_info=True)
 
 
     def _send_command(self, command_str):
