@@ -1,7 +1,7 @@
 import paho.mqtt.client as mqtt
 import json
 import logging
-from config.config import MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT, MQTT_TOPIC_TEMP_DATA, MQTT_TOPIC_TEMP_CONTROL
+from config.config import MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT, MQTT_TOPIC_TEMP_DATA, MQTT_TOPIC_TEMP_CONTROL,MQTT_TOPIC_ESP_STATUS 
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +16,11 @@ class MqttHandler:
 
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
-            logger.info(f"Successfully connected to MQTT Broker at {config.MQTT_BROKER_ADDRESS}:{config.MQTT_BROKER_PORT}")
-            self.client.subscribe(config.MQTT_TOPIC_TEMP_DATA)
-            if hasattr(config, 'MQTT_TOPIC_ESP_STATUS') and config.MQTT_TOPIC_ESP_STATUS:
-                 self.client.subscribe(config.MQTT_TOPIC_ESP_STATUS)
-                 logger.info(f"Subscribed to topic: {config.MQTT_TOPIC_ESP_STATUS}")
+            logger.info(f"Successfully connected to MQTT Broker at {MQTT_BROKER_ADDRESS}:{MQTT_BROKER_PORT}")
+            self.client.subscribe(MQTT_TOPIC_TEMP_DATA)
+            if MQTT_TOPIC_ESP_STATUS:
+                 self.client.subscribe(MQTT_TOPIC_ESP_STATUS)
+                 logger.info(f"Subscribed to topic: {MQTT_TOPIC_ESP_STATUS}")
             self.connected = True
         else:
             logger.error(f"Failed to connect to MQTT Broker, return code {rc}")
@@ -38,12 +38,12 @@ class MqttHandler:
             logger.debug(f"Received MQTT message on topic '{msg.topic}': {payload_str}")
             data = json.loads(payload_str)
 
-            if msg.topic == config.MQTT_TOPIC_TEMP_DATA:
+            if msg.topic == MQTT_TOPIC_TEMP_DATA:
                 if "temperature" in data:
                     self.control_logic.process_new_temperature(data["temperature"])
                 else:
                     logger.warning(f"Received temp data without 'temperature' field: {data}")
-            elif hasattr(config, 'MQTT_TOPIC_ESP_STATUS') and msg.topic == config.MQTT_TOPIC_ESP_STATUS:
+            elif hasattr(config, 'MQTT_TOPIC_ESP_STATUS') and msg.topic == MQTT_TOPIC_ESP_STATUS:
                 if "status" in data:
                     esp_status = data["status"]
                     self.control_logic.update_esp_status(esp_status, data)
@@ -95,8 +95,8 @@ class MqttHandler:
         if self.client and self.connected: # Controlla anche self.client
             try:
                 payload = json.dumps({"frequency": frequency_seconds})
-                result = self.client.publish(config.MQTT_TOPIC_TEMP_CONTROL, payload, qos=1)
-                logger.info(f"Attempted to publish sampling frequency {frequency_seconds}s to {config.MQTT_TOPIC_TEMP_CONTROL}")
+                result = self.client.publish(MQTT_TOPIC_TEMP_CONTROL, payload, qos=1)
+                logger.info(f"Attempted to publish sampling frequency {frequency_seconds}s to {MQTT_TOPIC_TEMP_CONTROL}")
             except Exception as e:
                 logger.error(f"Error publishing sampling frequency: {e}", exc_info=True)
         else:
