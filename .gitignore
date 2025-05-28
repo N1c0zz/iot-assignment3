@@ -39,4 +39,4 @@
 *.pyc
 iot-assignment3.code-workspace
 
-src/control-unit-backend/logs/*.log
+src/control-unit-backend/logs/control_unit.log
