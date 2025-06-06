@@ -113,7 +113,7 @@ class SerialHandler:
             return False
 
     def send_window_command(self, percentage): # percentage 0.0 to 1.0
-        percent_int = int(percentage * 100) # Converti 0.0-1.0 in 0-100 intero
+        percent_int = int(round(percentage * 100)) # Converti 0.0-1.0 in 0-100 intero
         command = f"SET_POS:{percent_int}" # Invia la percentuale
         self._send_command(command)
 
