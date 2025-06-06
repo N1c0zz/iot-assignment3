@@ -4,6 +4,7 @@ import logging
 import signal
 import sys
 import time
+import os
 
 from config.config import (
     API_HOST, API_PORT,
@@ -17,13 +18,24 @@ from communication.mqtt_handler import MqttHandler
 from communication.serial_handler import SerialHandler
 from api.api_routes import api_bp
 
+# --- Base Directory ---
+# Ottiene il path assoluto della directory in cui si trova app.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_DIR = os.path.join(BASE_DIR, 'logs') # Path alla directory logs
+
+# Crea la directory logs se non esiste
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
+
+LOG_FILE_PATH = os.path.join(LOG_DIR, 'control_unit.log') # Path completo al file di log
+
 # --- Logging Configuration ---
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("logs/control_unit.log"), # Log su file
-        logging.StreamHandler(sys.stdout)       # Log su console
+        logging.FileHandler(LOG_FILE_PATH), # Usa il path assoluto
+        logging.StreamHandler(sys.stdout)
     ]
 )
 logger = logging.getLogger(__name__)

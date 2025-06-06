@@ -1,7 +1,7 @@
 // js/script.js
 document.addEventListener('DOMContentLoaded', () => {
     // ----- CONFIGURAZIONE -----
-    const API_BASE_URL = 'http://localhost:5000/api'; // Cambia se usi ngrok o altro
+    const API_BASE_URL = 'http://localhost:5001/api'; // Cambia se usi ngrok o altro
     const POLLING_INTERVAL_MS = 3000; // Intervallo per aggiornare i dati (es. 3 secondi)
 
     // ----- ELEMENTI UI -----

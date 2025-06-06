@@ -33,4 +33,4 @@ STATE_ALARM = "ALARM"
 
 # API Configuration
 API_HOST = "0.0.0.0" # Ascolta su tutte le interfacce di rete
-API_PORT = 5000
+API_PORT = 5001

@@ -24,7 +24,6 @@ def set_mode_manual():
         return jsonify({"message": "Mode set to MANUAL"}), 200
     return jsonify({"message": "Failed to set mode"}), 400
 
-
 @api_bp.route('/mode/automatic', methods=['POST'])
 def set_mode_automatic():
     control_logic = get_control_logic()
