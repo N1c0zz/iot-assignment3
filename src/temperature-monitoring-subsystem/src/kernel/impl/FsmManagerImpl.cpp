@@ -119,17 +119,21 @@ void FsmManagerImpl::handleWiFiConnectedState() {
 void FsmManagerImpl::handleMqttConnectingState(unsigned long currentTime) {
     if (mqttController.isConnected()) {
         Serial.println("FSM Impl: MQTT Connesso -> STATE_OPERATIONAL");
+        mqttController.publishStatus("online");
         ledController.indicateOperational();
         _currentState = STATE_OPERATIONAL;
     } else if (currentTime - _lastMqttAttemptTime >= MQTT_RECONNECT_INTERVAL_MS) {
         Serial.println("FSM Impl: Riprovo connessione MQTT...");
+        mqttController.publishStatus("Riprovo connessione MQTT...");
         ledController.indicateMqttConnecting();
         if (wifiController.isConnected()) {
             if (!mqttController.connect()) {
                 Serial.println("FSM Impl: Tentativo MQTT fallito, attendo prossimo intervallo.");
+                mqttController.publishStatus("Tentativo MQTT fallito, attendo prossimo intervallo.");
             }
         } else {
             Serial.println("FSM Impl: WiFi perso prima di tentare MQTT.");
+            mqttController.publishStatus("WiFi perso prima di tentare MQTT.");
         }
         _lastMqttAttemptTime = currentTime;
     }
@@ -145,6 +149,7 @@ void FsmManagerImpl::handleMqttConnectingState(unsigned long currentTime) {
 
 void FsmManagerImpl::handleOperationalState(unsigned long currentTime) {
     ledController.indicateOperational();
+    mqttController.publishStatus("online");
     if (!wifiController.isConnected() || !mqttController.isConnected()) {
         Serial.println("FSM Impl: Connessione persa (WiFi o MQTT) -> STATE_NETWORK_ERROR");
         ledController.indicateNetworkError();
@@ -171,7 +176,7 @@ void FsmManagerImpl::handleSamplingTemperatureState(unsigned long currentTime) {
 }
 
 void FsmManagerImpl::handleSendingDataState() {
-    Serial.println("FSM Impl: Invio dati temperatura...");
+    Serial.println("FSM Impl: Invio dati temperatura e stato ESP...");
     if (mqttController.publishTemperature(_currentTemperature)) {
         Serial.println("FSM Impl: Dati inviati.");
     } else {
@@ -184,6 +189,7 @@ void FsmManagerImpl::handleSendingDataState() {
 void FsmManagerImpl::handleNetworkErrorState(unsigned long currentTime) {
     ledController.indicateNetworkError();
     Serial.println("FSM Impl: Errore di rete. In attesa per ritentare...");
+    mqttController.publishStatus("Errore di rete");
     if (mqttController.isConnected()) mqttController.disconnect();
     _currentState = STATE_WAIT_RECONNECT;
     _lastWiFiAttemptTime = currentTime; // Usa _lastWiFiAttemptTime qui
@@ -194,6 +200,7 @@ void FsmManagerImpl::handleWaitReconnectState(unsigned long currentTime) {
     ledController.indicateNetworkError();
     if (currentTime - _lastWiFiAttemptTime >= WIFI_RECONNECT_INTERVAL_MS) {
         Serial.println("FSM Impl: Fine attesa, ritento connessione (-> INITIALIZING)...");
+        mqttController.publishStatus("Ritento connessione...");
         _currentState = STATE_INITIALIZING;
     }
 }

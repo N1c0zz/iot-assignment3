@@ -43,7 +43,7 @@ class MqttHandler:
                     self.control_logic.process_new_temperature(data["temperature"])
                 else:
                     logger.warning(f"Received temp data without 'temperature' field: {data}")
-            elif hasattr(config, 'MQTT_TOPIC_ESP_STATUS') and msg.topic == MQTT_TOPIC_ESP_STATUS:
+            elif msg.topic == MQTT_TOPIC_ESP_STATUS:
                 if "status" in data:
                     esp_status = data["status"]
                     self.control_logic.update_esp_status(esp_status, data)

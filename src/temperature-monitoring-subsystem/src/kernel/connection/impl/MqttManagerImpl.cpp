@@ -221,14 +221,20 @@ bool MqttManagerImpl::publishStatus(const char *statusMessage)
         Serial.println("MQTT: Impossibile pubblicare stato, non connesso.");
         return false;
     }
+
+    StaticJsonDocument<100> jsonDoc;
+    jsonDoc["status"] = statusMessage;
+    char jsonBuffer[100];
+    size_t n = serializeJson(jsonDoc, jsonBuffer);
+
     Serial.print("MQTT: Invio stato '");
-    Serial.print(statusMessage);
+    Serial.print(jsonBuffer);
     Serial.print("' a '");
     Serial.print(MQTT_TOPIC_STATUS); // Usa il #define da config.h
     Serial.println("'");
 
-    if (_mqttClient.publish(MQTT_TOPIC_STATUS, statusMessage))
-    { // Stato non "retained" di default
+    if (_mqttClient.publish(MQTT_TOPIC_STATUS, reinterpret_cast<const uint8_t *>(jsonBuffer), n, true))
+    {
         Serial.println("MQTT: Stato inviato con successo.");
         return true;
     }
