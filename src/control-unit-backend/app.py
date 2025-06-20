@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 import logging
 import signal
@@ -22,6 +22,7 @@ from api.api_routes import api_bp
 # Ottiene il path assoluto della directory in cui si trova app.py
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, 'logs') # Path alla directory logs
+DASHBOARD_FRONTEND_DIR = os.path.join(BASE_DIR, '..', 'dashboard-frontend')
 
 # Crea la directory logs se non esiste
 if not os.path.exists(LOG_DIR):
@@ -46,6 +47,14 @@ control_logic_instance = None
 mqtt_handler_instance = None
 serial_handler_instance = None
 flask_app = None
+
+# Serve index.html
+def serve_index():
+    return send_from_directory(DASHBOARD_FRONTEND_DIR, 'index.html')
+
+# Serve i file statici (CSS, JS, immagini...)
+def serve_static(filename):
+    return send_from_directory(os.path.join(DASHBOARD_FRONTEND_DIR, 'static'), filename)
 
 # Funzione eseguita quando il sistema operativo manda un segnale specifico al processo Python
 # in questo caso pensata per interrompere la connessione MQTT e la connessione sulla Serial
@@ -97,11 +106,18 @@ def main():
 
 
     # 5. Inizializza Flask App
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        static_folder=os.path.join(DASHBOARD_FRONTEND_DIR, 'static'),
+        static_url_path='/static')
+
     CORS(app)
     app.control_logic_instance = control_logic_instance # Rendi control_logic accessibile alle route
+    # Registra il blueprint per le API
     app.register_blueprint(api_bp)
-    # flask_app = app # Salva per signal_handler
+
+    # Aggiungi la route per servire index.html
+    app.add_url_rule('/', view_func=serve_index)
 
     # Gestione spegnimento pulito
     signal.signal(signal.SIGINT, signal_handler)  # CTRL+C

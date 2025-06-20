@@ -32,8 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const chartCtx = document.getElementById('temperatureChart').getContext('2d');
     let temperatureChart; // Verrà inizializzato dopo
 
-    // ----- STATO APPLICAZIONE (SE NECESSARIO) -----
+    // ----- STATO APPLICAZIONE -----
     let currentSystemData = null; // Per tenere traccia dei dati più recenti
+    
+    // Variabili per gestire l'interazione dell'utente con lo slider
+    let isUserInteracting = false;
+    let lastUserInteraction = 0;
+    const INTERACTION_TIMEOUT = 2000; // 2 secondi di timeout dopo l'ultima interazione
 
     // ----- FUNZIONI -----
 
@@ -111,9 +116,28 @@ document.addEventListener('DOMContentLoaded', () => {
         // Gestisci visibilità controlli manuali e pulsante allarme
         if (data.system_mode === 'MANUAL') {
             manualControlsContainer.classList.remove('hidden');
+            
+            // LOGICA PROTETTA PER L'AGGIORNAMENTO DELLO SLIDER
             if (data.window_opening_percentage !== null) {
-                windowSlider.value = data.window_opening_percentage.toFixed(0);
-                sliderValueEl.textContent = data.window_opening_percentage.toFixed(0);
+                const newPercentage = data.window_opening_percentage.toFixed(0);
+                const currentSliderValue = parseInt(windowSlider.value, 10);
+                const timeSinceLastInteraction = Date.now() - lastUserInteraction;
+                
+                // Aggiorna lo slider solo se:
+                // 1. L'utente non sta interagendo attualmente
+                // 2. Sono passati almeno 2 secondi dall'ultima interazione
+                // 3. Lo slider non ha il focus
+                // 4. Il valore è effettivamente diverso
+                const shouldUpdateSlider = !isUserInteracting && 
+                                          timeSinceLastInteraction > INTERACTION_TIMEOUT &&
+                                          document.activeElement !== windowSlider &&
+                                          currentSliderValue !== parseInt(newPercentage, 10);
+                
+                if (shouldUpdateSlider) {
+                    windowSlider.value = newPercentage;
+                    sliderValueEl.textContent = newPercentage;
+                    console.log(`Slider aggiornato automaticamente a: ${newPercentage}%`);
+                }
             }
         } else {
             manualControlsContainer.classList.add('hidden');
@@ -183,8 +207,32 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSetManual.addEventListener('click', () => sendCommand('/mode/manual'));
     btnResetAlarm.addEventListener('click', () => sendCommand('/alarm/reset'));
 
+    // Event listeners per tracciare l'interazione dell'utente con lo slider
+    windowSlider.addEventListener('mousedown', () => {
+        isUserInteracting = true;
+        console.log('Utente ha iniziato a interagire con lo slider');
+    });
+
+    windowSlider.addEventListener('mouseup', () => {
+        isUserInteracting = false;
+        console.log('Utente ha finito di interagire con lo slider');
+    });
+
+    // Supporto per dispositivi touch
+    windowSlider.addEventListener('touchstart', () => {
+        isUserInteracting = true;
+        console.log('Utente ha iniziato a interagire con lo slider (touch)');
+    });
+
+    windowSlider.addEventListener('touchend', () => {
+        isUserInteracting = false;
+        console.log('Utente ha finito di interagire con lo slider (touch)');
+    });
+
     windowSlider.addEventListener('input', () => {
         sliderValueEl.textContent = windowSlider.value;
+        lastUserInteraction = Date.now(); // Aggiorna timestamp dell'ultima interazione
+        console.log(`Slider cambiato dall'utente: ${windowSlider.value}%`);
     });
 
     btnSetWindowManual.addEventListener('click', () => {
