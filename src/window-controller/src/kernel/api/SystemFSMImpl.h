@@ -86,6 +86,7 @@ private:
     SystemOpMode currentMode;           ///< The current operational mode of the FSM.
     int targetWindowPercentage;         ///< Desired window opening percentage (0-100).
     float receivedTemperature;          ///< Last temperature value received via serial command.
+    int lastPhysicalPotReading;         ///< Tracks the last known physical potentiometer reading in MANUAL mode.
 
     // Internal helper methods for FSM logic
     FsmEvent checkForEvents();

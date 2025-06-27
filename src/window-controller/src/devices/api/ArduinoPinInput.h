@@ -52,7 +52,7 @@ private:
     unsigned long lastDebounceEventTimeMs;  ///< Timestamp of the last button state change.
 
     // Members for potentiometer moving average filter
-    static const int POT_NUM_SAMPLES = 5;   ///< Number of samples for the potentiometer's moving average.
+    static const int POT_NUM_SAMPLES = 10;   ///< Number of samples for the potentiometer's moving average.
     int potReadings[POT_NUM_SAMPLES];       ///< Array to store recent potentiometer readings.
     int potReadIndex;                       ///< Current index in the potReadings array.
     long potTotal;                          ///< Sum of the current readings in potReadings.

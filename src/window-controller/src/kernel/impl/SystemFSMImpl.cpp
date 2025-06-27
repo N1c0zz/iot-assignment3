@@ -172,7 +172,9 @@ void SystemFSMImpl::onEnterAutomatic() {
 
 void SystemFSMImpl::onEnterManual() {
     // When entering MANUAL mode, immediately set window position based on potentiometer.
-    targetWindowPercentage = userInputCtrl.getPotentiometerPercentage();
+    int initialPotReading = userInputCtrl.getPotentiometerPercentage();
+    targetWindowPercentage = initialPotReading;
+    lastPhysicalPotReading = initialPotReading; // Initialize with the current pot value
     servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
     // Optionally, send the initial manual position to the Control Unit.
     serialLinkCtrl.sendPotentiometerValue(targetWindowPercentage);
@@ -191,15 +193,33 @@ void SystemFSMImpl::doStateActionAutomatic(FsmEvent event, int cmdValue) {
 }
 
 void SystemFSMImpl::doStateActionManual(FsmEvent event, int cmdValue) {
-    // In MANUAL mode, continuously read potentiometer and update servo if changed significantly.
-    int currentPotPercentage = userInputCtrl.getPotentiometerPercentage();
+    int oldTarget = targetWindowPercentage; // Store target at start of cycle
 
-    // Apply hysteresis or a change threshold to prevent servo jitter.
-    if (abs(currentPotPercentage - targetWindowPercentage) >= MANUAL_PERCENTAGE_CHANGE_THRESHOLD) {
-        targetWindowPercentage = currentPotPercentage;
-        servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
-        // Notify Control Unit of the new potentiometer-driven position.
-        serialLinkCtrl.sendPotentiometerValue(targetWindowPercentage);
+    // Always read the current physical state of the potentiometer first
+    int currentPhysicalPotReading = userInputCtrl.getPotentiometerPercentage();
+
+    // Has the user physically turned the potentiometer knob since the last cycle's physical reading?
+    if (abs(currentPhysicalPotReading - lastPhysicalPotReading) >= MANUAL_PERCENTAGE_CHANGE_THRESHOLD) {
+        // Yes, the knob was turned. This takes precedence over a stale target.
+        targetWindowPercentage = currentPhysicalPotReading;
+        serialLinkCtrl.sendPotentiometerValue(targetWindowPercentage); // Inform CU
     }
-    // Temperature updates are handled by processSerialCommand.
+
+    // Now, check if a serial command came in to override/set the position.
+    // If the pot moved AND a serial command came in the same cycle, serial command wins.
+    if (event == FsmEvent::SERIAL_CMD_SET_POS) {
+        if (cmdValue >= 0 && cmdValue <= 100) { // Validate percentage
+            targetWindowPercentage = cmdValue; // Serial command overrides
+        }
+
+    }
+
+    // Update the tracking of the potentiometer's physical state for the next cycle's comparison.
+    lastPhysicalPotReading = currentPhysicalPotReading;
+
+    // If the final targetWindowPercentage is different from what it was at the start of this cycle, update the servo.
+    if (targetWindowPercentage != oldTarget) {
+        servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+    }
+    // Temperature updates are handled by processSerialCommand and do not directly affect servo movements here.
 }
