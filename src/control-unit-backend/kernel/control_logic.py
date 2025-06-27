@@ -37,7 +37,6 @@ class ControlLogic:
         self.esp_status = status
         if full_data_payload:
             self.esp_last_status_data = full_data_payload
-        logger.info(f"ESP current status set to: {self.esp_status}")
         # Qui si potrebbero implementare logiche aggiuntive:
         # - Se status == "offline" o "unexpected_disconnect", potrei
         #   mettere il sistema in uno stato di "attesa sensore" o notificare la dashboard.
@@ -186,24 +185,30 @@ class ControlLogic:
         return False
 
     # Chiamato da api_routes.py (Dashboard) o SerialHandler (potenziometro Arduino) quando in MODE_MANUAL
-    def set_manual_window_opening(self, percentage_str):
+    def set_manual_window_opening(self, percentage_str, source="potentiometer"):
+        """
+        Imposta l'apertura della finestra in modalità manuale.
+        
+        Args:
+            percentage_str: Percentuale come stringa (0-100)
+            source: "potentiometer" (da Arduino) o "dashboard" (da web)
+        """
         try:
             percentage = float(percentage_str) / 100.0 # Assume Arduino invia 0-100
             percentage = max(WINDOW_CLOSED_PERCENTAGE, min(WINDOW_FULLY_OPEN_PERCENTAGE, percentage))
             if self.current_mode == MODE_MANUAL:
                 if abs(self.window_opening_percentage - percentage) > 0.001:
                     self.window_opening_percentage = percentage
-                    logger.info(f"Manual window opening set to: {self.window_opening_percentage*100:.0f}%")
-                    if self.serial_handler:
-                        # Invia il comando di posizione finestra
-                        self.serial_handler.send_window_command(self.window_opening_percentage) # Es. SET_POS:X
-
-                        # La modalità è già MANUAL (verificato all'inizio della funzione).
-                        # Non serve inviare send_system_mode(MODE_MANUAL) di nuovo.
-
-                        # Invia la temperatura corrente per l'LCD, dato che siamo in MANUALE
-                        if self.current_temperature is not None:
-                            self.serial_handler.send_temperature_to_arduino(self.current_temperature)
+                    logger.info(f"Manual window opening set to: {self.window_opening_percentage*100:.0f}% (source: {source})")
+                    
+                    # Invia comando SET_POS solo se la richiesta arriva dalla Dashboard
+                    if source == "dashboard" and self.serial_handler:
+                        logger.info(f"Sending SET_POS command to Arduino (Dashboard request)")
+                        self.serial_handler.send_window_command(self.window_opening_percentage)
+                    
+                    # Invia sempre la temperatura se disponibile
+                    if self.serial_handler and self.current_temperature is not None:
+                        self.serial_handler.send_temperature_to_arduino(self.current_temperature)
                 return True
             else:
                 logger.warning("Cannot set window opening: not in MANUAL mode.")

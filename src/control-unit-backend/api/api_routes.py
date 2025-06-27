@@ -45,7 +45,8 @@ def set_window_opening():
     try:
         # Il frontend invia 0-100, set_manual_window_opening si aspetta una stringa 0-100
         percentage_str = str(float(data['percentage']))
-        success = control_logic.set_manual_window_opening(percentage_str)
+        # IMPORTANTE: Specifica che questo comando viene dalla Dashboard
+        success = control_logic.set_manual_window_opening(percentage_str, source="dashboard")
         if success:
             return jsonify({"message": f"Window opening set to {data['percentage']}%"}), 200
         else:

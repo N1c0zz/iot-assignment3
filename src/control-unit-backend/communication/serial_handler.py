@@ -77,10 +77,11 @@ class SerialHandler:
                 else:
                     logger.warning(f"Unknown mode string '{new_mode_str}' in MODE_CHANGED data.")
             elif data_line.startswith("POT:"):
-                # ... (codice POT invariato, ma puoi aggiungere try-except più specifici se vuoi) ...
+                # ... (codice POT invariato, ma specifica source) ...
                 try:
                     value_str = data_line.split(":")[1]
-                    self.control_logic.set_manual_window_opening(value_str)
+                    # IMPORTANTE: Specifica che questo comando viene dal potenziometro
+                    self.control_logic.set_manual_window_opening(value_str, source="potentiometer")
                 except IndexError:
                     logger.warning(f"Malformed POT data from Arduino: {data_line}")
                 except Exception as e_pot: # Catch specifico per il blocco POT
@@ -88,9 +89,9 @@ class SerialHandler:
             else:
                 logger.debug(f"Unknown data from Arduino: {data_line}")
         except NameError as ne_proc: # Cattura NameError specificamente dentro _process_serial_data
-             logger.error(f"CRITICAL NAME_ERROR in _process_serial_data internal logic: {ne_proc}", exc_info=True)
+            logger.error(f"CRITICAL NAME_ERROR in _process_serial_data internal logic: {ne_proc}", exc_info=True)
         except Exception as e_proc_gen: # Catch-all per _process_serial_data
-             logger.error(f"Generic error in _process_serial_data internal logic for line '{data_line}': {e_proc_gen}", exc_info=True)
+            logger.error(f"Generic error in _process_serial_data internal logic for line '{data_line}': {e_proc_gen}", exc_info=True)
 
 
     def _send_command(self, command_str):

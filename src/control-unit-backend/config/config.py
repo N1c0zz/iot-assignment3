@@ -10,8 +10,8 @@ SERIAL_PORT = "COM4"                                      # Linux. Su Windows po
 SERIAL_BAUDRATE = 115200       # Deve corrispondere a quello dell'Arduino
 
 # Control Logic Parameters
-T1_THRESHOLD = 15  # Gradi Celsius
-T2_THRESHOLD = 25  # Gradi Celsius
+T1_THRESHOLD = 20  # Gradi Celsius
+T2_THRESHOLD = 30  # Gradi Celsius
 N_LAST_MEASUREMENTS = 20
 DT_ALARM_DURATION_S = 10  # Secondi per lo stato TOO_HOT prima dell'ALARM
 SAMPLING_FREQUENCY_F1_S = 20 # Secondi (1 campione al minuto)

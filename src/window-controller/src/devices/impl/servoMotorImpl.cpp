@@ -22,6 +22,11 @@ void ServoMotorImpl::setPositionPercentage(int percentage) {
          return;
     }
 
+    // NUOVO: Dead zone più ampia per evitare micro-movimenti
+    if (abs(percentage - currentMotorPercentage) < 2) {
+        return; // Ignora cambiamenti minori di 2%
+    }
+
     // Map the percentage (0-100) to the defined angular range for the servo.
     int angle = map(percentage, 0, 100, minAngleDegrees, maxAngleDegrees);
 

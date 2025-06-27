@@ -171,12 +171,23 @@ void SystemFSMImpl::onEnterAutomatic() {
 }
 
 void SystemFSMImpl::onEnterManual() {
-    // When entering MANUAL mode, immediately set window position based on potentiometer.
-    int initialPotReading = userInputCtrl.getPotentiometerPercentage();
-    targetWindowPercentage = initialPotReading;
-    lastPhysicalPotReading = initialPotReading; // Initialize with the current pot value
+    // Quando entriamo in modalità MANUAL, dobbiamo sincronizzare
+    // il tracking del potenziometro con la sua posizione fisica attuale
+    
+    // Leggi la posizione corrente del potenziometro
+    int currentPotReading = userInputCtrl.getPotentiometerPercentage();
+    
+    // Imposta il target alla posizione corrente del potenziometro
+    targetWindowPercentage = currentPotReading;
+    
+    // CRUCIALE: Sincronizza il tracking con la posizione attuale
+    lastPhysicalPotReading = currentPotReading;
+    
+    // Muovi il servo alla posizione del potenziometro
     servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
-    // Optionally, send the initial manual position to the Control Unit.
+    
+    // IMPORTANTE: Informa IMMEDIATAMENTE il Control Unit della posizione iniziale
+    // Questo è cruciale quando si entra in MANUAL tramite bottone fisico
     serialLinkCtrl.sendPotentiometerValue(targetWindowPercentage);
 }
 
@@ -193,33 +204,46 @@ void SystemFSMImpl::doStateActionAutomatic(FsmEvent event, int cmdValue) {
 }
 
 void SystemFSMImpl::doStateActionManual(FsmEvent event, int cmdValue) {
-    int oldTarget = targetWindowPercentage; // Store target at start of cycle
-
-    // Always read the current physical state of the potentiometer first
-    int currentPhysicalPotReading = userInputCtrl.getPotentiometerPercentage();
-
-    // Has the user physically turned the potentiometer knob since the last cycle's physical reading?
-    if (abs(currentPhysicalPotReading - lastPhysicalPotReading) >= MANUAL_PERCENTAGE_CHANGE_THRESHOLD) {
-        // Yes, the knob was turned. This takes precedence over a stale target.
-        targetWindowPercentage = currentPhysicalPotReading;
-        serialLinkCtrl.sendPotentiometerValue(targetWindowPercentage); // Inform CU
-    }
-
-    // Now, check if a serial command came in to override/set the position.
-    // If the pot moved AND a serial command came in the same cycle, serial command wins.
-    if (event == FsmEvent::SERIAL_CMD_SET_POS) {
-        if (cmdValue >= 0 && cmdValue <= 100) { // Validate percentage
-            targetWindowPercentage = cmdValue; // Serial command overrides
-        }
-
-    }
-
-    // Update the tracking of the potentiometer's physical state for the next cycle's comparison.
-    lastPhysicalPotReading = currentPhysicalPotReading;
-
-    // If the final targetWindowPercentage is different from what it was at the start of this cycle, update the servo.
-    if (targetWindowPercentage != oldTarget) {
+    // Variabile statica per il rate limiting del servo
+    static unsigned long lastServoUpdateTime = 0;
+    const unsigned long SERVO_UPDATE_INTERVAL_MS = 50; // Massimo 20 aggiornamenti/secondo
+    
+    // Leggi sempre la posizione corrente del potenziometro
+    int currentPotReading = userInputCtrl.getPotentiometerPercentage();
+    unsigned long currentTime = millis();
+    
+    // Gestisci comando seriale SET_POS (ha precedenza e bypassa il rate limiting)
+    if (event == FsmEvent::SERIAL_CMD_SET_POS && cmdValue >= 0 && cmdValue <= 100) {
+        targetWindowPercentage = cmdValue;
         servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+        lastServoUpdateTime = currentTime; // Aggiorna il timer
+        
+        // Sincronizza il tracking del potenziometro
+        lastPhysicalPotReading = currentPotReading;
+        
+        Serial.print("MANUAL: Serial SET_POS to ");
+        Serial.println(cmdValue);
+        return;
     }
-    // Temperature updates are handled by processSerialCommand and do not directly affect servo movements here.
+    
+    // Gestisci movimento del potenziometro
+    int potChange = abs(currentPotReading - lastPhysicalPotReading);
+    if (potChange >= MANUAL_PERCENTAGE_CHANGE_THRESHOLD) {
+        
+        // Aggiorna sempre il target (per il tracking)
+        targetWindowPercentage = currentPotReading;
+        lastPhysicalPotReading = currentPotReading;
+        
+        // Muovi il servo SOLO se è passato abbastanza tempo dall'ultimo aggiornamento
+        if (currentTime - lastServoUpdateTime >= SERVO_UPDATE_INTERVAL_MS) {
+            servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
+            lastServoUpdateTime = currentTime;
+            
+            Serial.print("MANUAL: Servo updated to ");
+            Serial.println(targetWindowPercentage);
+        }
+        
+        // Informa sempre il Control Unit (senza rate limiting)
+        serialLinkCtrl.sendPotentiometerValue(targetWindowPercentage);
+    }
 }
