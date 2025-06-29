@@ -100,7 +100,7 @@ input[type="range"] {
 /* Stili per gli stati */
 .state-normal { color: green; font-weight: bold; }
 .state-hot { color: orange; font-weight: bold; }
-.state-too_hot { color: red; font-weight: bold; } /* Corretto da too-hot a too_hot per coerenza con JSON */
+.state-too-hot { color: red; font-weight: bold; } /* Corretto da too-hot a too_hot per coerenza con JSON */
 .state-alarm {
     color: white;
     background-color: red;
