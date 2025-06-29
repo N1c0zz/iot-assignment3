@@ -107,26 +107,30 @@ void SystemFSMImpl::run() {
 
         case SystemOpMode::AUTOMATIC:
             if (event == FsmEvent::MODE_BUTTON_PRESSED) {
-                handleStateTransition(SystemOpMode::MANUAL);
+                //Prima invia il cambio di modalità
                 serialLinkCtrl.sendModeChangedNotification(SystemOpMode::MANUAL);
+                
+                // Poi effettua la transizione (che includerà onEnterManual)
+                handleStateTransition(SystemOpMode::MANUAL);
             } else if (event == FsmEvent::SERIAL_CMD_MODE_MANUAL) {
                 handleStateTransition(SystemOpMode::MANUAL);
                 serialLinkCtrl.sendAckModeChange(SystemOpMode::MANUAL);
             } else {
-                // Perform actions specific to AUTOMATIC mode if no transition occurred.
                 doStateActionAutomatic(event, commandValue);
             }
             break;
 
         case SystemOpMode::MANUAL:
             if (event == FsmEvent::MODE_BUTTON_PRESSED) {
-                handleStateTransition(SystemOpMode::AUTOMATIC);
+                // Prima invia il cambio di modalità  
                 serialLinkCtrl.sendModeChangedNotification(SystemOpMode::AUTOMATIC);
+                
+                // Poi effettua la transizione
+                handleStateTransition(SystemOpMode::AUTOMATIC);
             } else if (event == FsmEvent::SERIAL_CMD_MODE_AUTO) {
                 handleStateTransition(SystemOpMode::AUTOMATIC);
                 serialLinkCtrl.sendAckModeChange(SystemOpMode::AUTOMATIC);
             } else {
-                // Perform actions specific to MANUAL mode if no transition occurred.
                 doStateActionManual(event, commandValue);
             }
             break;
@@ -185,9 +189,7 @@ void SystemFSMImpl::onEnterManual() {
     
     // Muovi il servo alla posizione del potenziometro
     servoMotorCtrl.setPositionPercentage(targetWindowPercentage);
-    
-    // IMPORTANTE: Informa IMMEDIATAMENTE il Control Unit della posizione iniziale
-    // Questo è cruciale quando si entra in MANUAL tramite bottone fisico
+
     serialLinkCtrl.sendPotentiometerValue(targetWindowPercentage);
 }
 

@@ -46,8 +46,15 @@ class ControlLogic:
     # Chiamata all'avvio (o quando gli handler sono disponibili) per impostare lo stato
     # iniziale dei dispositivi esterni
     def _initialize_state(self):
-        if self.mqtt_handler:
+        """Chiamata all'avvio (o quando gli handler sono disponibili) per impostare lo stato
+        iniziale dei dispositivi esterni"""
+        
+        # Pubblica frequenza di campionamento solo se MQTT è effettivamente connesso
+        if self.mqtt_handler and self.mqtt_handler.connected:
             self.mqtt_handler.publish_sampling_frequency(SAMPLING_FREQUENCY_F1_S)
+        # Se MQTT non è ancora connesso, la frequenza verrà pubblicata automaticamente
+        # quando arriverà la prima temperatura e verrà chiamato _evaluate_automatic_mode()
+        
         if self.serial_handler:
             self.serial_handler.send_system_mode(self.current_mode)
             # Invia la temperatura iniziale se in manuale (anche se all'inizio è AUTOMATIC,

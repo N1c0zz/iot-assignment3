@@ -85,27 +85,25 @@ def main():
     serial_handler_instance = SerialHandler(control_logic_instance)
     control_logic_instance.serial_handler = serial_handler_instance
 
-    # 4. Connetti MQTT e Seriale
+    # 4. PRIMA: Connetti Arduino (operazione sincrona con timeout)
+    logger.info("Attempting to connect to Arduino first...")
+    if not serial_handler_instance.connect():
+        logger.warning("Could not connect to Arduino. Window control will be unavailable.")
+        logger.warning("System will continue but window commands will be lost.")
+    else:
+        logger.info("Arduino connection established successfully.")
+
+    # 5. DOPO: Connetti MQTT e inizia il listening (ora Arduino è pronto)
+    logger.info("Arduino ready, now connecting to MQTT...")
     mqtt_handler_instance.connect()
     mqtt_handler_instance.start_listening_loop()
-
-    # Tenta la connessione seriale. Se fallisce, il sistema può comunque partire
-    # ma la funzionalità della finestra sarà limitata.
-    if not serial_handler_instance.connect():
-        logger.warning("Could not connect to Arduino. Window control might be unavailable.")
-    # else:
-        # Se la connessione seriale ha successo, inizializziamo lo stato dopo che tutto è connesso
-        # Questo è stato spostato nel costruttore di ControlLogic, che ora riceve gli handler
-        # e può chiamare i loro metodi dopo la sua inizializzazione.
-        # Però, una chiamata esplicita qui dopo che TUTTO è connesso potrebbe essere più robusta.
-        # control_logic_instance._initialize_state() # Per inviare stato iniziale a ESP/Arduino
-
-    # Re-initialize state which might send initial commands via MQTT/Serial
-    # Ora che gli handler sono settati in control_logic_instance.
+    
+    # 6. INFINE: Inizializza lo stato del sistema
+    # Ora sia MQTT che Serial sono pronti, quindi nessun comando andrà perso
+    logger.info("Both Arduino and MQTT ready, initializing system state...")
     control_logic_instance._initialize_state()
 
-
-    # 5. Inizializza Flask App
+    # 7. Inizializza Flask App
     app = Flask(
         __name__,
         static_folder=os.path.join(DASHBOARD_FRONTEND_DIR, 'static'),
