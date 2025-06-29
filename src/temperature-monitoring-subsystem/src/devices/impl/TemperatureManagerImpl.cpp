@@ -18,13 +18,23 @@ void TemperatureManagerImpl::setup() {
 float TemperatureManagerImpl::readTemperature() {
     // Legge il valore grezzo dall'ADC.
     int sensorValue = analogRead(_sensorPin);
+    
     // Converte il valore ADC in tensione.
-    // Si assume un ADC a 12 bit (0-4095) e una tensione di riferimento di 3.3V.
-    // La precisione può variare; per misure critiche, considerare la calibrazione dell'ADC.
     float voltage = (float)sensorValue / 4095.0 * 3.3;
+    
     // Converte la tensione in gradi Celsius secondo le specifiche del TMP36.
-    // Formula: Temp (°C) = (Vout in mV - 500) / 10
-    // Che è equivalente a: Temp (°C) = (Vout in V * 100) - 50
     float temperatureC = (voltage * 100.0) - 50.0;
+    
+    // FILTRO PER VALORI ANOMALI
+    // TMP36 range tipico: -40°C a +125°C, ma per uso domestico: 0°C a 50°C
+    if (temperatureC < -10.0 || temperatureC > 60.0) {
+        
+        // Per ora: rileggi una volta
+        delay(10);
+        sensorValue = analogRead(_sensorPin);
+        voltage = (float)sensorValue / 4095.0 * 3.3;
+        temperatureC = (voltage * 100.0) - 50.0;
+    }
+    
     return temperatureC;
 }
