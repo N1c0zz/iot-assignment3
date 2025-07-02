@@ -1,39 +1,36 @@
 #include "../api/TemperatureManagerImpl.h"
-#include <Arduino.h> // Per pinMode, analogRead
+#include <Arduino.h>
 
 TemperatureManagerImpl::TemperatureManagerImpl(int sensorPin) : _sensorPin(sensorPin) {
-    // Il costruttore inizializza il pin del sensore.
-    // La configurazione del pin hardware avviene in setup().
+    // Constructor initializes the sensor pin.
+    // Hardware pin configuration is performed in setup().
 }
 
 void TemperatureManagerImpl::setup() {
     pinMode(_sensorPin, INPUT);
-    // Nota: l'ADC dell'ESP32 può richiedere una configurazione di attenuazione
-    // per leggere correttamente l'intero range di tensione del TMP36 (0-3.3V).
-    // Esempio: analogSetPinAttenuation(_sensorPin, ADC_11db);
-    // Per ora, si utilizza la configurazione ADC di default.
-    Serial.println("Sensor: OOP Setup completato.");
 }
 
 float TemperatureManagerImpl::readTemperature() {
-    // Legge il valore grezzo dall'ADC.
+    // Read raw value from ESP32 ADC
     int sensorValue = analogRead(_sensorPin);
     
-    // Converte il valore ADC in tensione.
-    float voltage = (float)sensorValue / 4095.0 * 3.3;
+    // Convert ADC value to voltage
+    float voltage = (float)sensorValue / ESP32_ADC_RESOLUTION * ESP32_ADC_VREF;
     
-    // Converte la tensione in gradi Celsius secondo le specifiche del TMP36.
-    float temperatureC = (voltage * 100.0) - 50.0;
+    // Convert voltage to Celsius according to TMP36 specifications
+    // Formula: Temperature(°C) = (Voltage(mV) - Offset) / Sensitivity
+    // TMP36: 10mV/°C sensitivity with 500mV offset at 0°C
+    float voltageMillivolts = voltage * 1000.0f; // Convert to mV
+    float temperatureC = (voltageMillivolts - TMP36_OFFSET_MV) / TMP36_MV_PER_CELSIUS;
     
-    // FILTRO PER VALORI ANOMALI
-    // TMP36 range tipico: -40°C a +125°C, ma per uso domestico: 0°C a 50°C
-    if (temperatureC < -10.0 || temperatureC > 60.0) {
-        
-        // Per ora: rileggi una volta
-        delay(10);
+    // Filter for anomalous values - validate against expected indoor range
+    if (temperatureC < TEMP_MIN_VALID || temperatureC > TEMP_MAX_VALID) {
+        // Re-read once if value seems out of range
+        delay(TEMP_REREAD_DELAY_MS);
         sensorValue = analogRead(_sensorPin);
-        voltage = (float)sensorValue / 4095.0 * 3.3;
-        temperatureC = (voltage * 100.0) - 50.0;
+        voltage = (float)sensorValue / ESP32_ADC_RESOLUTION * ESP32_ADC_VREF;
+        voltageMillivolts = voltage * 1000.0f;
+        temperatureC = (voltageMillivolts - TMP36_OFFSET_MV) / TMP36_MV_PER_CELSIUS;
     }
     
     return temperatureC;

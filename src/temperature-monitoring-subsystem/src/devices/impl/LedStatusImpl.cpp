@@ -1,17 +1,16 @@
 #include "../api/LedStatusImpl.h"
-#include <Arduino.h> // Per pinMode, digitalWrite, delay
+#include <Arduino.h>
 
 LedStatusImpl::LedStatusImpl(int greenLedPin, int redLedPin)
     : _greenLedPin(greenLedPin), _redLedPin(redLedPin) {
-    // Il costruttore inizializza i pin membri.
-    // La configurazione effettiva dei pin hardware avviene in setup().
+    // Constructor initializes pin member variables.
+    // Actual hardware pin configuration is performed in setup().
 }
 
 void LedStatusImpl::setup() {
     pinMode(_greenLedPin, OUTPUT);
     pinMode(_redLedPin, OUTPUT);
-    turnLedsOff(); // Stato iniziale definito: LED spenti.
-    Serial.println("LEDs: OOP Setup completato (Esterni Standard).");
+    turnLedsOff(); // Set initial state: LEDs off
 }
 
 void LedStatusImpl::turnLedsOff() {
@@ -20,35 +19,33 @@ void LedStatusImpl::turnLedsOff() {
 }
 
 void LedStatusImpl::indicateSystemBoot() {
-    // Fornisce un feedback visivo immediato all'avvio.
+    // Brief flash of both LEDs to indicate system startup
     digitalWrite(_greenLedPin, HIGH);
     digitalWrite(_redLedPin, HIGH);
     delay(250);
     turnLedsOff();
-    Serial.println("LEDs: Boot indication complete.");
 }
 
 void LedStatusImpl::indicateOperational() {
-    // Verde acceso, Rosso spento: indica che il sistema funziona correttamente.
+    // Green LED on, Red LED off: system operating normally
     digitalWrite(_greenLedPin, HIGH);
     digitalWrite(_redLedPin, LOW);
 }
 
 void LedStatusImpl::indicateNetworkError() {
-    // Rosso acceso, Verde spento: indica problemi di connettività o errori critici.
+    // Red LED on, Green LED off: network or critical error
     digitalWrite(_greenLedPin, LOW);
     digitalWrite(_redLedPin, HIGH);
 }
 
 void LedStatusImpl::indicateWifiConnecting() {
-    // Indica il tentativo di connessione WiFi.
-    // Attualmente usa lo stesso pattern di NetworkError.
+    // Red LED on while attempting WiFi connection
     digitalWrite(_greenLedPin, LOW);
     digitalWrite(_redLedPin, HIGH);
 }
 
 void LedStatusImpl::indicateMqttConnecting() {
-    // Indica il tentativo di connessione MQTT.
+    // Red LED on while attempting MQTT connection
     digitalWrite(_greenLedPin, LOW);
     digitalWrite(_redLedPin, HIGH);
 }

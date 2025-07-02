@@ -2,24 +2,26 @@
 #define LED_STATUS_IMPL_H
 
 #include "LedStatus.h"
-#include "config/config.h" // Per i PIN dei LED
+#include "config/config.h"
 
 /**
  * @class LedStatusImpl
  * @brief Implements LedStatus for two standard (green/red) LEDs.
- * Manages GPIO pins to provide visual feedback on system status.
+ * 
+ * Manages GPIO pins to provide visual feedback on system status using
+ * standard digital LEDs connected to ESP32 GPIO pins.
  */
 class LedStatusImpl : public LedStatus {
 public:
   /**
    * @brief Constructor for LedStatusImpl.
-   * Initializes with specified or default GPIO pins for green and red LEDs.
-   * @param greenLedPin GPIO pin for the green LED. Defaults to GREEN_LED_PIN from config.
-   * @param redLedPin GPIO pin for the red LED. Defaults to RED_LED_PIN from config.
+   * @param greenLedPin GPIO pin for the green LED. Defaults to GREEN_LED_PIN.
+   * @param redLedPin GPIO pin for the red LED. Defaults to RED_LED_PIN.
    */
   LedStatusImpl(int greenLedPin = GREEN_LED_PIN, int redLedPin = RED_LED_PIN);
+
   /**
-   * @brief Default virtual destructor.
+   * @brief Virtual destructor.
    */
   virtual ~LedStatusImpl() {}
 

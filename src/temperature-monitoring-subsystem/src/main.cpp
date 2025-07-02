@@ -1,85 +1,95 @@
-// src/main.cpp
-#include <Arduino.h>
-#include "config/config.h" // Per le costanti globali e intervalli di default
+/**
+ * @file main.cpp
+ * @brief Main application for the Smart Temperature Monitoring System.
+ * 
+ * This file contains the setup() and loop() functions for the ESP32.
+ * It initializes all hardware components (LEDs, temperature sensor),
+ * network managers (WiFi, MQTT), and the finite state machine (FSM),
+ * then repeatedly executes the system logic in the main loop.
+ */
 
-// Includi le INTERFACCE dei moduli e della FSM
+#include <Arduino.h>
+#include "config/config.h"
+
+// Interface headers for component abstraction
 #include "devices/api/LedStatus.h"
 #include "devices/api/TemperatureManager.h"
 #include "kernel/connection/api/WifiManager.h"
 #include "kernel/connection/api/MqttManager.h"
-#include "kernel/api/IFsmManager.h"    // << NUOVA INTERFACCIA FSM
+#include "kernel/api/IFsmManager.h"
 
-// Includi le IMPLEMENTAZIONI (per poter creare le istanze)
+// Implementation headers (needed for instantiation)
 #include "devices/api/LedStatusImpl.h"
 #include "devices/api/TemperatureManagerImpl.h"
 #include "kernel/connection/api/WifiManagerImpl.h"
 #include "kernel/connection/api/MqttManagerImpl.h"
-#include "kernel/api/FsmManagerImpl.h" // << NUOVA IMPLEMENTAZIONE FSM
+#include "kernel/api/FsmManagerImpl.h"
 
-// === Puntatori alle interfacce per i moduli del sistema ===
+// === Pointers to interfaces for component decoupling ===
 LedStatus* ledStatus = nullptr;
 TemperatureManager* temperatureManager = nullptr;
 WifiManager* wifiManager = nullptr;
 MqttManager* mqttManager = nullptr;
-IFsmManager* systemFsm = nullptr; // << PUNTATORE ALL'INTERFACCIA FSM
+IFsmManager* systemFsm = nullptr;
 
-// === Variabili di Configurazione (definite qui e passate ai costruttori) ===
-const char* MY_WIFI_SSID = "TIM-18202156";
-const char* MY_WIFI_PASSWORD = "MbeCOCznKXXVA7j1wzT4tapt";
-const char* MY_MQTT_SERVER_HOST = "192.168.1.100";
-const int   MY_MQTT_SERVER_PORT = 1883;
-const char* MY_MQTT_CLIENT_ID_PREFIX = "esp32s3-oop-fsm-";
-
+// === Configuration Constants ===
+// These could be moved to config.h if shared across files
+const char* WIFI_NETWORK_SSID = WIFI_SSID;
+const char* WIFI_NETWORK_PASSWORD = WIFI_PASSWORD;
+const char* MQTT_BROKER_HOST = MQTT_SERVER_HOST;
+const int MQTT_BROKER_PORT = MQTT_SERVER_PORT;
+const char* MQTT_CLIENT_PREFIX = MQTT_CLIENT_ID_PREFIX;
 
 /**
  * @brief Setup function, runs once at system startup.
- * Initializes serial communication, module instances (LED, Sensor, WiFi, MQTT),
- * and the FSM instance. Then, setups up the FSM.
+ * 
+ * Initializes serial communication, creates component instances,
+ * sets up individual modules, creates and initializes the FSM.
  */
 void setup() {
     Serial.begin(115200);
-    while (!Serial) { ; }
-    Serial.println("\n\n[Smart Temp Monitor - ESP32 OOP FSM] Avvio Sistema...");
+    while (!Serial) { ; } // Wait for serial port to be ready
+    Serial.println("\n\n[Smart Temperature Monitor - ESP32] System Starting...");
 
-    // Crea istanze delle implementazioni concrete.
+    // Create instances of concrete implementations
     ledStatus = new LedStatusImpl();
     temperatureManager = new TemperatureManagerImpl();
-    wifiManager = new WifiManagerImpl(MY_WIFI_SSID, MY_WIFI_PASSWORD);
-    mqttManager = new MqttManagerImpl(MY_MQTT_SERVER_HOST, MY_MQTT_SERVER_PORT, MY_MQTT_CLIENT_ID_PREFIX, wifiManager);
+    wifiManager = new WifiManagerImpl(WIFI_NETWORK_SSID, WIFI_NETWORK_PASSWORD);
+    mqttManager = new MqttManagerImpl(MQTT_BROKER_HOST, MQTT_BROKER_PORT, MQTT_CLIENT_PREFIX, wifiManager);
 
-    // Crea l'istanza della FSM, passando i riferimenti ai moduli necessari
+    // Create FSM instance, passing references to required modules
     systemFsm = new FsmManagerImpl(*ledStatus, *temperatureManager, *wifiManager, *mqttManager);
 
-    // Esegui il setup per ogni modulo DIRETTO (non tramite FSM)
+    // Setup individual modules
     ledStatus->setup();
     ledStatus->indicateSystemBoot();
     temperatureManager->setup();
     wifiManager->setup();
     mqttManager->setup();
 
-    // Esegui il setup della FSM (che potrebbe fare ulteriori inizializzazioni di stato)
+    // Setup FSM (may perform additional state initialization)
     systemFsm->setup();
 
-    Serial.println("Setup OOP FSM iniziale completato.");
+    Serial.println("System initialization completed.");
 }
 
 /**
  * @brief Main loop function, runs repeatedly.
+ * 
  * Manages MQTT communication loop and executes the FSM's run cycle.
+ * The FSM handles all state management and coordination between components.
  */
 void loop() {
-    // Il loop MQTT deve essere chiamato regolarmente per mantenere la connessione
-    // e processare i messaggi in entrata/uscita.
+    // MQTT loop must be called regularly to maintain connection
+    // and process incoming/outgoing messages
     if (wifiManager && wifiManager->isConnected()) {
         if (mqttManager) {
             mqttManager->loop();
         }
     }
 
-    // Esegui un ciclo della FSM.
+    // Execute one FSM cycle
     if (systemFsm) {
         systemFsm->run();
     }
-
-    delay(100); // Mantieni un breve delay per stabilità.
 }
