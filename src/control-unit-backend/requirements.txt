@@ -1,3 +1,11 @@
-Flask
-paho-mqtt
-pyserial
+# Web framework for dashboard API
+Flask>=2.3.0
+
+# MQTT client library for ESP32 communication
+paho-mqtt>=1.6.0
+
+# Serial communication library for Arduino interface
+pyserial>=3.5
+
+# Cross-Origin Resource Sharing for web dashboard
+flask-cors>=4.0.0
