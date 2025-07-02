@@ -1,111 +1,142 @@
-#include "../api/I2CLcdView.h" // Corresponding header
-#include "config/config.h"    // For LCD_COLUMNS, LCD_ROWS, LCD_REFRESH_INTERVAL_MS
+#include "../api/I2CLcdView.h"
+#include "config/config.h"
 
 I2CLcdView::I2CLcdView(uint8_t i2cAddress, uint8_t cols, uint8_t rows)
-    : lcd(i2cAddress, cols, rows), // Initialize the LiquidCrystal_I2C object
-      lastUpdateTimeMs(0),
-      prevIsAutoMode(false),       // Initial values designed to trigger the first update
-      prevWindowPercentage(-1),
-      prevCurrentTemperature(-1000.0f), // Sentinel for invalid temperature
-      forceUpdate(true) {}
+    : lcd(i2cAddress, cols, rows)
+    , lastUpdateTimeMs(0)
+    , prevIsAutoMode(false)
+    , prevWindowPercentage(-1)          // Invalid initial value to force first update
+    , prevCurrentTemperature(INVALID_TEMPERATURE)
+    , forceUpdate(true)                 // Force complete refresh on first update
+{
+    // Constructor body intentionally minimal - initialization in setup()
+}
 
 void I2CLcdView::setup() {
-    lcd.init();      // Initialize the LCD library
-    lcd.backlight(); // Turn on the LCD backlight
+    // Initialize I2C LCD communication
+    lcd.init();
+    
+    // Enable backlight for visibility
+    lcd.backlight();
+    
+    // Display boot message immediately
     displayBootingMessage();
 }
 
 void I2CLcdView::clear() {
     lcd.clear();
-    forceUpdate = true; // Force a full redraw on the next update call
+    forceUpdate = true;  // Force complete refresh on next update
 }
 
 void I2CLcdView::displayBootingMessage() {
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print(F("Booting Sys...")); // Use F() macro for constant strings to save SRAM
+    lcd.print(F("Booting Sys..."));
 }
 
 void I2CLcdView::displayReadyMessage() {
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print(F("System Ready"));
-    delay(1000); // Display for a short period
-    this->clear(); // Clear the screen afterwards, preparing for normal operation
+    
+    // Display message briefly, then clear for normal operation
+    delay(1000);
+    clear();
 }
 
 void I2CLcdView::update(bool isAutoMode, int windowPercentage, float currentTemperature) {
     unsigned long currentTimeMs = millis();
 
-    // Determine if the displayed state has changed since the last update
-    bool stateChanged = (isAutoMode != prevIsAutoMode) ||
-                        (windowPercentage != prevWindowPercentage) ||
-                        (!isAutoMode && (abs(currentTemperature - prevCurrentTemperature) > 0.05f)); // Small tolerance for float comparison
+    // Determine if display content has changed since last update
+    bool modeChanged = (isAutoMode != prevIsAutoMode);
+    bool positionChanged = (windowPercentage != prevWindowPercentage);
+    bool temperatureChanged = (!isAutoMode && 
+                              (abs(currentTemperature - prevCurrentTemperature) > TEMPERATURE_UPDATE_THRESHOLD));
 
-    // Only update if forced, state changed, or refresh interval passed
-    if (!forceUpdate && !stateChanged && (currentTimeMs - lastUpdateTimeMs < LCD_REFRESH_INTERVAL_MS)) {
-        return; // No update needed
+    // Check if update is needed based on changes or refresh interval
+    bool updateNeeded = forceUpdate || 
+                       modeChanged || 
+                       positionChanged || 
+                       temperatureChanged ||
+                       (currentTimeMs - lastUpdateTimeMs >= LCD_REFRESH_INTERVAL_MS);
+
+    // Skip update if not needed
+    if (!updateNeeded) {
+        return;
     }
 
-    // Clear the entire screen if the mode changes or if a force update is requested.
-    // This simplifies redraw logic but can cause more flickering than selective clearing.
-    if (forceUpdate || (isAutoMode != prevIsAutoMode)) {
+    // Clear display if mode changed or force update requested
+    if (forceUpdate || modeChanged) {
         lcd.clear();
     }
-    forceUpdate = false; // Reset force flag
+    forceUpdate = false;
 
-    // Line 0: Display current operational mode
+    //=========================================================================
+    // LINE 0: OPERATIONAL MODE DISPLAY
+    //=========================================================================
+    
     lcd.setCursor(0, 0);
     lcd.print(F("Mode: "));
-    String modeStr = isAutoMode ? F("AUTO  ") : F("MANUAL"); // Padding spaces for clean overwrite
-    lcd.print(modeStr);
-    // Clear remaining part of the line if previous string was longer
-    for (int i = (6 + modeStr.length()); i < LCD_COLUMNS; i++) { // "Mode: " is 6 chars
-        lcd.print(F(" "));
-    }
+    
+    String modeString = isAutoMode ? F("AUTO  ") : F("MANUAL");
+    lcd.print(modeString);
+    
+    // Clear remaining characters on line if needed
+    clearRestOfLine(0, 6 + modeString.length());
 
-    // Line 1: Display window position
+    //=========================================================================
+    // LINE 1: WINDOW POSITION DISPLAY
+    //=========================================================================
+    
     lcd.setCursor(0, 1);
     lcd.print(F("Pos: "));
-    String posStr = String(windowPercentage) + "%";
-    lcd.print(posStr);
-    // Clear remaining part of the line
-    for (int i = (5 + posStr.length()); i < LCD_COLUMNS; i++) { // "Pos: " is 5 chars
-        lcd.print(F(" "));
-    }
+    
+    String positionString = String(windowPercentage) + "%";
+    lcd.print(positionString);
+    
+    // Clear remaining characters on line if needed
+    clearRestOfLine(1, 5 + positionString.length());
 
-    // Line 2: Display temperature (only in MANUAL mode)
-    if (LCD_ROWS >= 3) { // Check if the display has at least 3 rows
+    //=========================================================================
+    // LINE 2: TEMPERATURE DISPLAY (MANUAL MODE ONLY)
+    //=========================================================================
+    
+    if (LCD_ROWS >= 3) {  // Ensure display has at least 3 rows
         lcd.setCursor(0, 2);
-        if (!isAutoMode) {
-            if (currentTemperature > -990.0f) { // Check for a valid temperature reading
+        
+        if (!isAutoMode) {  // Show temperature only in MANUAL mode
+            if (currentTemperature > INVALID_TEMPERATURE + 100.0f) {  // Valid temperature
                 lcd.print(F("Temp: "));
-                lcd.print(currentTemperature, 1); // One decimal place
+                lcd.print(currentTemperature, 1);  // One decimal place
                 lcd.print(F(" C"));
-                // Clear remaining part of the line
-                // Calculate current length: "Temp: " (6) + number + " C" (2)
-                int currentDisplayLength = 6 + String(currentTemperature, 1).length() + 2;
-                for (int i = currentDisplayLength; i < LCD_COLUMNS; i++) {
-                    lcd.print(F(" "));
-                }
+                
+                // Calculate and clear remaining characters
+                int tempDisplayLength = 6 + String(currentTemperature, 1).length() + 2;
+                clearRestOfLine(2, tempDisplayLength);
             } else {
-                lcd.print(F("Temp: --- C")); // Placeholder for invalid temperature
-                // Clear remaining part of the line
-                for (int i = strlen("Temp: --- C"); i < LCD_COLUMNS; i++) {
-                    lcd.print(F(" "));
-                }
+                // Invalid temperature - show placeholder
+                lcd.print(F("Temp: --- C"));
+                clearRestOfLine(2, 11);
             }
         } else {
-            // In AUTOMATIC mode, clear the temperature line
-            for (int i = 0; i < LCD_COLUMNS; i++) {
-                lcd.print(F(" "));
-            }
+            // AUTOMATIC mode - clear temperature line
+            clearRestOfLine(2, 0);
         }
     }
-
-    // Store current state for next comparison
+    
+    // Store current values for next comparison
     lastUpdateTimeMs = currentTimeMs;
     prevIsAutoMode = isAutoMode;
     prevWindowPercentage = windowPercentage;
     prevCurrentTemperature = currentTemperature;
+}
+
+void I2CLcdView::clearRestOfLine(int row, int startColumn) {
+    // Calculate number of characters to clear
+    int charactersToClear = LCD_COLUMNS - startColumn;
+    
+    // Clear remaining characters with spaces
+    for (int i = 0; i < charactersToClear; i++) {
+        lcd.print(F(" "));
+    }
 }

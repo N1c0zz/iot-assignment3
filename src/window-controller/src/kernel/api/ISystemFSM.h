@@ -1,55 +1,69 @@
 #ifndef ISYSTEM_FSM_H
 #define ISYSTEM_FSM_H
 
-#include "config/config.h" // Per SystemOpMode enum
-
-/**
- * @file ISystemFSM.h
- * @brief Defines the interface for the Window Controller's Finite State Machine.
- */
+#include "config/config.h"
 
 /**
  * @class ISystemFSM
- * @brief Interface for the window controller's state management logic.
- * Defines the public methods for initializing, running, and querying the FSM.
+ * @brief Abstract interface for window controller state management
+ * 
+ * This interface defines the contract for the window controller's
+ * Finite State Machine (FSM), which manages system behavior, state
+ * transitions, and event handling.
  */
 class ISystemFSM {
 public:
-  /**
-   * @brief Virtual destructor for proper cleanup.
-   */
-  virtual ~ISystemFSM() {}
+    /**
+     * @brief Virtual destructor for proper cleanup
+     */
+    virtual ~ISystemFSM() = default;
 
-  /**
-   * @brief Initializes the FSM, setting its initial state.
-   * Typically called once in the main setup().
-   */
-  virtual void setup() = 0;
+    /**
+     * @brief Initialize the FSM and set initial state
+     * 
+     * Prepares the FSM for operation by setting initial state
+     * and performing any necessary setup operations.
+     */
+    virtual void setup() = 0;
 
-  /**
-   * @brief Executes one cycle of the FSM logic.
-   * This method should be called repeatedly in the main loop().
-   * It handles event detection, state transitions, and actions.
-   */
-  virtual void run() = 0;
+    /**
+     * @brief Execute one FSM cycle
+     */
+    virtual void run() = 0;
 
-  /**
-   * @brief Gets the current operational mode of the FSM.
-   * @return The current SystemOpMode (e.g., INIT, AUTOMATIC, MANUAL).
-   */
-  virtual SystemOpMode getCurrentMode() const = 0;
+    /**
+     * @brief Get current operational mode
+     * 
+     * Returns the current operational mode of the system,
+     * which determines the primary control source for window positioning.
+     * 
+     * @return Current SystemOpMode (INIT, AUTOMATIC, or MANUAL)
+     */
+    virtual SystemOpMode getCurrentMode() const = 0;
 
-  /**
-   * @brief Gets the FSM's current target for the window opening percentage.
-   * @return The target window position as a percentage (0-100).
-   */
-  virtual int getWindowTargetPercentage() const = 0;
+    /**
+     * @brief Get current window target position
+     * 
+     * Returns the current target position for the window as
+     * determined by the FSM based on the current operational mode.
+     * 
+     * In AUTOMATIC mode: Set by remote commands from Control Unit
+     * In MANUAL mode: Set by local potentiometer position
+     * 
+     * @return Target window position as percentage (0-100)
+     */
+    virtual int getWindowTargetPercentage() const = 0;
 
-  /**
-   * @brief Gets the last temperature value received and stored by the FSM.
-   * @return The last known temperature, or a sentinel value if not valid.
-   */
-  virtual float getCurrentTemperature() const = 0;
+    /**
+     * @brief Get last received temperature value
+     * 
+     * Returns the most recent temperature value received from
+     * the Control Unit via serial communication.
+     * 
+     * @return Last known temperature in Celsius
+     * @return Sentinel value (negative) if no valid temperature received
+     */
+    virtual float getCurrentTemperature() const = 0;
 };
 
 #endif // ISYSTEM_FSM_H

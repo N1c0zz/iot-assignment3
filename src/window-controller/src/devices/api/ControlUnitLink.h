@@ -1,67 +1,102 @@
 #ifndef CONTROL_UNIT_LINK_H
 #define CONTROL_UNIT_LINK_H
 
-#include <Arduino.h>      // For String type
-#include "config/config.h" // For SystemOpMode enum (or a more specific FSM state enum)
+#include <Arduino.h>
+#include "config/config.h"
 
 /**
  * @class ControlUnitLink
- * @brief Interface for a communication link to the system's Control Unit.
- *
- * Defines a contract for sending notifications and receiving commands,
- * abstracting the underlying communication mechanism.
+ * @brief Abstract interface for Control Unit communication
+ * 
+ * This interface defines the contract for bidirectional communication
+ * with the system's Control Unit. It handles both incoming commands
+ * (position settings, mode changes) and outgoing notifications
+ * (status updates, user input events).
+ * 
+ * Communication Protocol:
+ * - Incoming Commands:
+ *   - "SET_POS:<percentage>\\n" - Set window position (0-100%)
+ *   - "TEMP:<temperature>\\n" - Update temperature reading
+ *   - "MODE:AUTOMATIC\\n" - Switch to automatic mode
+ *   - "MODE:MANUAL\\n" - Switch to manual mode
+ * 
+ * - Outgoing Messages:
+ *   - "POT:<percentage>\\n" - Report potentiometer position
+ *   - "MODE_CHANGED:<mode>\\n" - Notify mode change initiated locally
+ *   - "ACK_MODE:<mode>\\n" - Acknowledge mode change command
  */
 class ControlUnitLink {
 public:
     /**
-     * @brief Virtual destructor.
+     * @brief Virtual destructor for proper cleanup
      */
-    virtual ~ControlUnitLink() {}
+    virtual ~ControlUnitLink() = default;
 
     /**
-     * @brief Initializes the communication link.
-     * @param baudRate The baud rate for serial communication, if applicable.
+     * @brief Initialize communication link
+     * 
+     * @param baudRate Communication baud rate
      */
     virtual void setup(long baudRate) = 0;
 
     /**
-     * @brief Checks if a complete command is available to be read.
-     * @return True if a command is ready, false otherwise.
+     * @brief Check if complete command is available
+     * 
+     * Checks the communication buffer for complete, newline-terminated
+     * commands ready for processing. Should handle command assembly
+     * from incoming data stream.
+     * 
+     * @return true if complete command is ready for reading
+     * @return false if no complete command available
      */
     virtual bool commandAvailable() = 0;
 
     /**
-     * @brief Reads a complete command from the communication link.
-     *        Should be called after commandAvailable() returns true.
-     * @return The received command as a String. Returns an empty string if no command is ready.
+     * @brief Read complete command from buffer
+     * 
+     * Retrieves and consumes the oldest complete command from
+     * the internal buffer. Command is removed from buffer after reading.
+     * 
+     * @return Complete command string (without termination characters)
+     * @return Empty string if no command available
      */
     virtual String readCommand() = 0;
 
     /**
-     * @brief Sends the current potentiometer value to the Control Unit.
-     * @param percentage The potentiometer value as a percentage (0-100).
+     * @brief Send potentiometer value to Control Unit
+     * 
+     * Transmits current potentiometer position as percentage.
+     * Used in MANUAL mode to notify Control Unit of user input.
+     * 
+     * Message format: "POT:<percentage>\\n"
+     * 
+     * @param percentage Current potentiometer position (0-100%)
      */
-    virtual void sendPotentiometerValue(int percentage) = 0; // Resa virtuale pura
+    virtual void sendPotentiometerValue(int percentage) = 0;
 
     /**
-     * @brief Sends a notification to the Control Unit that the system mode has changed locally.
-     * @param newMode The new operational mode of the system.
+     * @brief Send mode change notification
+     * 
+     * Notifies Control Unit that system mode was changed locally
+     * (via button press). This is a notification, not a request.
+     * 
+     * Message format: "MODE_CHANGED:<MANUAL|AUTOMATIC>\\n"
+     * 
+     * @param newMode The new operational mode after local change
      */
     virtual void sendModeChangedNotification(SystemOpMode newMode) = 0;
 
     /**
-     * @brief Sends an acknowledgement to the Control Unit after a mode change command was processed.
-     * @param acknowledgedMode The operational mode that was successfully set.
+     * @brief Send mode change acknowledgment
+     * 
+     * Acknowledges successful processing of a mode change command
+     * received from the Control Unit.
+     * 
+     * Message format: "ACK_MODE:<MANUAL|AUTOMATIC>\\n"
+     * 
+     * @param acknowledgedMode The mode that was successfully set
      */
     virtual void sendAckModeChange(SystemOpMode acknowledgedMode) = 0;
-
-    // Example of a potential future method, kept for reference.
-    // /**
-    //  * @brief Sends the current overall system state to the Control Unit.
-    //  * @param mode The current operational mode.
-    //  * @param windowPercentage The current window opening percentage.
-    //  */
-    // virtual void sendCurrentState(SystemOpMode mode, int windowPercentage) = 0;
 };
 
 #endif // CONTROL_UNIT_LINK_H

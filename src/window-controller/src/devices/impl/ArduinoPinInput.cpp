@@ -1,88 +1,92 @@
-#include "../api/ArduinoPinInput.h" // Corresponding header file for this implementation
+#include "../api/ArduinoPinInput.h"
+#include "config/config.h"
 
 ArduinoPinInput::ArduinoPinInput(int buttonPin, int potPin, unsigned long debounceDelay)
-    : modeButtonPin(buttonPin),
-      potentiometerPin(potPin),
-      buttonDebounceDelayMs(debounceDelay),
-      lastButtonStateReading(HIGH), // Assume INPUT_PULLUP, so not pressed is HIGH
-      debouncedButtonState(HIGH),   // Initial debounced state is also not pressed
-      lastDebounceEventTimeMs(0),
-      potReadIndex(0),
-      potTotal(0)
+    : modeButtonPin(buttonPin)
+    , potentiometerPin(potPin)
+    , buttonDebounceDelayMs(debounceDelay)
+    , lastButtonStateReading(HIGH)      // INPUT_PULLUP default state
+    , debouncedButtonState(HIGH)        // Initially not pressed
+    , lastDebounceEventTimeMs(0)
+    , potReadIndex(0)
+    , potTotal(0)
 {
-    // Initialize the potentiometer readings buffer to zeros.
-    // The setup() method will populate it with initial real readings.
+    // Initialize potentiometer readings buffer to zero
+    // Will be populated with real readings during setup()
     for (int i = 0; i < POT_NUM_SAMPLES; i++) {
         potReadings[i] = 0;
     }
 }
 
 void ArduinoPinInput::setup() {
-    // Configure the mode button pin with an internal pull-up resistor.
-    // This means the pin will read HIGH when the button is not pressed,
-    // and LOW when the button is pressed (connecting the pin to GND).
+    // Configure button pin with internal pull-up resistor
+    // This means: HIGH when not pressed, LOW when pressed (connected to GND)
     pinMode(modeButtonPin, INPUT_PULLUP);
 
-    // Configure the potentiometer pin as a standard analog input.
+    // Configure potentiometer pin as analog input
     pinMode(potentiometerPin, INPUT);
 
-    // Prime the moving average filter buffer with initial potentiometer readings.
-    // This helps the filter to provide a more accurate value террористов from the start.
+    // Prime the moving average filter with initial readings
+    // This provides immediate stable output rather than starting from zero
     for (int i = 0; i < POT_NUM_SAMPLES; i++) {
         potReadings[i] = analogRead(potentiometerPin);
         potTotal += potReadings[i];
     }
-    // Reset the read index to the beginning of the circular buffer.
+    
+    // Reset buffer index to beginning
     potReadIndex = 0;
 }
 
 bool ArduinoPinInput::isModeButtonPressed() {
-    bool eventDetected = false;
+    bool pressEventDetected = false;
     int currentPinReading = digitalRead(modeButtonPin);
 
-    // If the raw pin state has changed since the last read,
-    // reset the debounce timer.
+    // Reset debounce timer if pin state has changed
     if (currentPinReading != lastButtonStateReading) {
         lastDebounceEventTimeMs = millis();
     }
 
-    // If enough time has passed since the last state change (i.e., the signal is stable),
-    // then check if the stable state represents a new button event.
+    // Check if enough time has passed for signal to be stable
     if ((millis() - lastDebounceEventTimeMs) > buttonDebounceDelayMs) {
-        // If the current stable reading is different from the last known debounced state,
-        // it means the button's logical state has changed.
+        
+        // If stable reading differs from last known debounced state,
+        // then the button's logical state has actually changed
         if (currentPinReading != debouncedButtonState) {
-            debouncedButtonState = currentPinReading; // Update to the new stable state
-            // An event is a transition to the pressed state (LOW for INPUT_PULLUP).
+            debouncedButtonState = currentPinReading;
+            
+            // Detect press event: transition to LOW (pressed) state
+            // Due to INPUT_PULLUP: HIGH = released, LOW = pressed
             if (debouncedButtonState == LOW) {
-                eventDetected = true;
+                pressEventDetected = true;
             }
         }
     }
-    // Store the current raw reading for the next cycle's comparison.
+    
+    // Store current reading for next cycle comparison
     lastButtonStateReading = currentPinReading;
-    return eventDetected;
+    
+    return pressEventDetected;
 }
 
 int ArduinoPinInput::getPotentiometerPercentage() {
-    // Subtract the oldest reading from the total.
-    potTotal = potTotal - potReadings[potReadIndex];
+    // Remove oldest reading from running total
+    potTotal -= potReadings[potReadIndex];
 
-    // Read the new raw value from the potentiometer.
+    // Read new value and store in circular buffer
     potReadings[potReadIndex] = analogRead(potentiometerPin);
 
-    // Add the new reading to the total.
-    potTotal = potTotal + potReadings[potReadIndex];
+    // Add new reading to running total
+    potTotal += potReadings[potReadIndex];
 
-    // Advance the index for the circular buffer.
-    potReadIndex = potReadIndex + 1;
+    // Advance circular buffer index
+    potReadIndex++;
     if (potReadIndex >= POT_NUM_SAMPLES) {
-        potReadIndex = 0; // Wrap around
+        potReadIndex = 0;  // Wrap around to beginning
     }
 
-    // Calculate the average of the raw values in the buffer.
+    // Calculate moving average
     int averageRawValue = potTotal / POT_NUM_SAMPLES;
 
-    // Map the averaged raw value (0-1023) to a percentage (0-100).
+    // Map from ADC range (0-1023) to percentage range (0-100)
     return map(averageRawValue, 0, 1023, 0, 100);
 }

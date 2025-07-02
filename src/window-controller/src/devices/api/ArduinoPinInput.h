@@ -1,61 +1,49 @@
 #ifndef ARDUINO_PIN_INPUT_H
 #define ARDUINO_PIN_INPUT_H
 
-#include "UserInputSource.h" // The interface this class implements
-#include <Arduino.h>         // For pinMode, digitalRead, analogRead, millis
+#include "UserInputSource.h"
+#include "config/config.h"
+#include <Arduino.h>
 
 /**
  * @class ArduinoPinInput
- * @brief Implements UserInputSource for reading a button and a potentiometer
- *        connected to Arduino pins.
- *
- * This class handles button debouncing and potentiometer reading, including
- * a simple moving average filter for the potentiometer to reduce noise.
+ * @brief Arduino GPIO implementation of UserInputSource interface
+ * 
+ * This class provides concrete user input handling for Arduino platforms,
+ * implementing button debouncing and potentiometer filtering. It uses
+ * Arduino GPIO pins with appropriate pull-up configurations.
  */
 class ArduinoPinInput : public UserInputSource {
 public:
     /**
-     * @brief Constructor for ArduinoPinInput.
-     * @param buttonPin The Arduino digital pin number for the mode button.
-     * @param potPin The Arduino analog pin number for the potentiometer.
-     * @param debounceDelay The debounce delay in milliseconds for the button.
+     * @brief Construct Arduino input handler
+     * 
+     * @param buttonPin Digital pin number for mode button (will use INPUT_PULLUP)
+     * @param potPin Analog pin number for potentiometer (A0, A1, etc.)
+     * @param debounceDelay Button debounce delay in milliseconds
      */
     ArduinoPinInput(int buttonPin, int potPin, unsigned long debounceDelay);
 
     /**
-     * @brief Sets up the button and potentiometer pins.
-     *        Initializes pin modes and necessary internal states.
+     * @brief Default destructor
      */
+    virtual ~ArduinoPinInput() = default;
+
+    // UserInputSource interface implementation
     void setup() override;
-
-    /**
-     * @brief Detects a debounced press of the mode button.
-     * @return True if a debounced button press has occurred, false otherwise.
-     */
     bool isModeButtonPressed() override;
-
-    /**
-     * @brief Reads the potentiometer, applies a moving average filter, and returns the value as a percentage.
-     * @return The filtered potentiometer value as a percentage (0-100).
-     */
     int getPotentiometerPercentage() override;
 
 private:
-    // Pin configuration
-    int modeButtonPin;                      ///< Arduino pin for the mode selection button.
-    int potentiometerPin;                   ///< Arduino pin for the potentiometer.
-    unsigned long buttonDebounceDelayMs;    ///< Debounce time for the button in milliseconds.
-
-    // State for button debouncing
-    int lastButtonStateReading;             ///< Last raw reading of the button pin.
-    int debouncedButtonState;               ///< The stable state of the button after debouncing.
-    unsigned long lastDebounceEventTimeMs;  ///< Timestamp of the last button state change.
-
-    // Members for potentiometer moving average filter
-    static const int POT_NUM_SAMPLES = 10;   ///< Number of samples for the potentiometer's moving average.
-    int potReadings[POT_NUM_SAMPLES];       ///< Array to store recent potentiometer readings.
-    int potReadIndex;                       ///< Current index in the potReadings array.
-    long potTotal;                          ///< Sum of the current readings in potReadings.
+    int modeButtonPin;                        ///< Digital pin for mode button
+    int potentiometerPin;                     ///< Analog pin for potentiometer
+    unsigned long buttonDebounceDelayMs;      ///< Debounce delay in milliseconds
+    int lastButtonStateReading;               ///< Last raw button pin reading
+    int debouncedButtonState;                 ///< Stable debounced button state
+    unsigned long lastDebounceEventTimeMs;    ///< Timestamp of last state change
+    int potReadings[POT_NUM_SAMPLES];         ///< Circular buffer for readings
+    int potReadIndex;                         ///< Current buffer index
+    long potTotal;                            ///< Sum of current buffer contents
 };
 
 #endif // ARDUINO_PIN_INPUT_H

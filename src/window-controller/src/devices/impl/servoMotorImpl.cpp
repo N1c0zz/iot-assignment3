@@ -1,39 +1,44 @@
-#include "../api/ServoMotorImpl.h" // Corresponding header
+#include "../api/ServoMotorImpl.h"
+#include "config/config.h"
 
 ServoMotorImpl::ServoMotorImpl(int pin, int minAngle, int maxAngle)
-    : motorPin(pin),
-      minAngleDegrees(minAngle),
-      maxAngleDegrees(maxAngle),
-      currentMotorPercentage(0) // Initial percentage is 0
-{}
+    : motorPin(pin)
+    , minAngleDegrees(minAngle)
+    , maxAngleDegrees(maxAngle)
+    , currentMotorPercentage(0)
+{
+    // Constructor body intentionally empty - initialization done in setup()
+}
 
 void ServoMotorImpl::setup() {
-    servoObject.attach(motorPin); // Attach the servo to the specified pin
-    // Set an initial position, typically closed or a known safe state.
+    // Attach servo to PWM pin
+    servoObject.attach(motorPin);
+    
+    // Set initial position to closed (0%)
     setPositionPercentage(0);
 }
 
 void ServoMotorImpl::setPositionPercentage(int percentage) {
-    // Constrain the input percentage to the valid range of 0-100.
+    // Constrain input to valid range
     percentage = constrain(percentage, 0, 100);
 
-    // Optimization: if the servo is already at the target percentage and attached, do nothing.
+    // Optimization: skip if already at target position and servo is attached
     if (percentage == currentMotorPercentage && servoObject.attached()) {
-         return;
+        return;
     }
 
-    // NUOVO: Dead zone più ampia per evitare micro-movimenti
-    if (abs(percentage - currentMotorPercentage) < 2) {
-        return; // Ignora cambiamenti minori di 2%
+    // Dead zone filtering: ignore small changes to prevent micro-movements
+    if (abs(percentage - currentMotorPercentage) < MANUAL_PERCENTAGE_CHANGE_THRESHOLD) {
+        return;
     }
 
-    // Map the percentage (0-100) to the defined angular range for the servo.
-    int angle = map(percentage, 0, 100, minAngleDegrees, maxAngleDegrees);
+    // Map percentage to servo angle within configured range
+    int targetAngle = map(percentage, 0, 100, minAngleDegrees, maxAngleDegrees);
 
-    // Command the servo to move to the calculated angle.
-    servoObject.write(angle);
+    // Command servo to move to calculated angle
+    servoObject.write(targetAngle);
 
-    // Update the stored current position.
+    // Update internal position tracking
     currentMotorPercentage = percentage;
 }
 

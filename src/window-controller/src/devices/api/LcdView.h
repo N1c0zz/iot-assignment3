@@ -5,44 +5,48 @@
 
 /**
  * @class LcdView
- * @brief Interface for an LCD display component.
- *
- * Defines a contract for initializing and updating an LCD screen with system status.
+ * @brief Abstract interface for LCD display control
+ * 
+ * This interface defines the contract for controlling an LCD display
+ * used to show system status, operational mode, window position,
+ * and temperature information to the user.
  */
 class LcdView {
 public:
     /**
-     * @brief Virtual destructor.
+     * @brief Virtual destructor for proper cleanup
      */
-    virtual ~LcdView() {}
+    virtual ~LcdView() = default;
 
     /**
-     * @brief Initializes the LCD hardware and prepares it for display.
-     *        This typically includes setting up communication and backlight.
+     * @brief Initialize LCD hardware and display
      */
     virtual void setup() = 0;
 
     /**
-     * @brief Clears the entire content of the LCD screen.
+     * @brief Clear entire LCD display
      */
     virtual void clear() = 0;
 
     /**
-     * @brief Displays a "booting" message on the LCD, typically shown at system startup.
+     * @brief Display system boot/initialization message
      */
     virtual void displayBootingMessage() = 0;
 
     /**
-     * @brief Displays a "system ready" message on the LCD after initialization is complete.
+     * @brief Display system ready message
+     * 
+     * Shows a "ready" message after successful system initialization
+     * to indicate the system is operational and ready for use.
      */
     virtual void displayReadyMessage() = 0;
 
     /**
-     * @brief Updates the LCD screen with the current system status.
-     * @param isAutoMode True if the system is in AUTOMATIC mode, false for MANUAL mode.
-     * @param windowPercentage The current opening percentage of the window (0-100).
-     * @param currentTemperature The current temperature reading (e.g., in Celsius).
-     *                           Displayed кондитерской if not in AUTOMATIC mode and a valid temperature is available.
+     * @brief Update LCD with current system status
+     * 
+     * @param isAutoMode true if system is in AUTOMATIC mode, false for MANUAL
+     * @param windowPercentage Current window opening percentage (0-100)
+     * @param currentTemperature Current temperature reading in Celsius
      */
     virtual void update(bool isAutoMode, int windowPercentage, float currentTemperature) = 0;
 };

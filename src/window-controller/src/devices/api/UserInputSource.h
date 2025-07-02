@@ -3,33 +3,43 @@
 
 /**
  * @class UserInputSource
- * @brief Interface for components provides user input data.
- *
- * This class defines a contract for how the system will interact with
- * user input hardware, like buttons and potentiometers.
+ * @brief Abstract interface for user input hardware
+ * 
+ * This interface defines the contract for accessing user input devices
+ * such as buttons and potentiometers. It provides a hardware
+ * way to handle user interactions in the window controller system.
  */
 class UserInputSource {
 public:
     /**
-     * @brief Virtual destructor.
+     * @brief Virtual destructor for proper cleanup
      */
-    virtual ~UserInputSource() {}
+    virtual ~UserInputSource() = default;
 
     /**
-     * @brief Initializes the user input source component.
-     *        This should typically configure pins and initial states.
+     * @brief Initialize user input hardware
      */
     virtual void setup() = 0;
 
     /**
-     * @brief Checks if the mode button has been pressed.
-     * @return True if a debounced button press event has occurred since the last call, false otherwise.
+     * @brief Check for mode button press event
+     * 
+     * Detects a debounced button press event. This method should
+     * return true only once per physical button press, implementing
+     * proper debouncing to filter out mechanical bouncing.
+     * 
+     * @return true if a new debounced button press occurred since last call
+     * @return false if no new button press detected
      */
     virtual bool isModeButtonPressed() = 0;
 
     /**
-     * @brief Gets the current potentiometer value, mapped to a percentage.
-     * @return The potentiometer value as a percentage (0-100), potentially filtered.
+     * @brief Get filtered potentiometer reading as percentage
+     * 
+     * Reads the potentiometer value, applies appropriate filtering
+     * (such as moving average), and returns the result as a percentage.
+     * 
+     * @return Filtered potentiometer value as percentage (0-100)
      */
     virtual int getPotentiometerPercentage() = 0;
 };

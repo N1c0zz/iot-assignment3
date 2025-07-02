@@ -2,103 +2,106 @@
 #define SYSTEM_FSM_IMPL_H
 
 #include "ISystemFSM.h"
-#include "config/config.h"              // For SystemOpMode enum and other FSM-related constants
-#include "../../devices/api/ServoMotor.h"       // Interface for servo control
-#include "../../devices/api/UserInputSource.h"  // Interface for button/potentiometer input
-#include "../../devices/api/ControlUnitLink.h"  // Interface for serial communication
+#include "config/config.h"
+#include "../../devices/api/ServoMotor.h"
+#include "../../devices/api/UserInputSource.h"
+#include "../../devices/api/ControlUnitLink.h"
 
 /**
  * @enum FsmEvent
- * @brief Defines the types of events that can trigger state transitions or actions within the FSM.
+ * @brief Types of events that can trigger FSM actions or transitions
+ * 
+ * This enumeration defines all possible events that the FSM can
+ * detect and process during its operation cycle.
  */
 enum class FsmEvent {
-    NONE,                   ///< No event occurred.
-    BOOT_COMPLETED,         ///< System boot sequence has finished.
-    MODE_BUTTON_PRESSED,    ///< The physical mode change button was pressed.
-    SERIAL_CMD_SET_POS,     ///< Serial command received to set window position.
-    SERIAL_CMD_SET_TEMP,    ///< Serial command received to update temperature.
-    SERIAL_CMD_MODE_AUTO,   ///< Serial command received to switch to AUTOMATIC mode.
-    SERIAL_CMD_MODE_MANUAL  ///< Serial command received to switch to MANUAL mode.
+    NONE,                   ///< No event detected this cycle
+    BOOT_COMPLETED,         ///< System initialization completed
+    MODE_BUTTON_PRESSED,    ///< Physical mode button was pressed
+    SERIAL_CMD_SET_POS,     ///< Received "SET_POS:x" command
+    SERIAL_CMD_SET_TEMP,    ///< Received "TEMP:x" command  
+    SERIAL_CMD_MODE_AUTO,   ///< Received "MODE:AUTOMATIC" command
+    SERIAL_CMD_MODE_MANUAL  ///< Received "MODE:MANUAL" command
 };
 
 /**
  * @class SystemFSMImpl
- * @brief Manages the state and behavior of the window controller.
- *
- * This class implements the core logic for the window controller. It depends on
- * interfaces for hardware components (servo, input, serial link), allowing for
- * flexibility in their concrete implementations.
+ * @brief Concrete FSM implementation for window controller
+ * 
+ * This class implements the complete window controller FSM logic
+ * using dependency injection for hardware abstraction. It coordinates
+ * servo control, user input processing, and serial communication
+ * based on the current operational mode.
+ * 
+ * State Management:
+ * - INIT: Transient initialization state
+ * - AUTOMATIC: Remote control via serial commands
+ * - MANUAL: Local control via potentiometer with hysteresis
  */
 class SystemFSMImpl : public ISystemFSM {
 public:
     /**
-     * @brief Constructor for the SystemFSMImpl.
-     * @param servo Reference to a ServoMotor interface implementation.
-     * @param input Reference to a UserInputSource interface implementation.
-     * @param serial Reference to a ControlUnitLink interface implementation.
+     * @brief Construct FSM with hardware dependencies
+     * 
+     * @param servo Reference to servo motor controller interface
+     * @param input Reference to user input source interface  
+     * @param serial Reference to Control Unit communication interface
+     * 
+     * @pre All hardware interfaces must be valid and initialized
      */
     SystemFSMImpl(ServoMotor& servo, UserInputSource& input, ControlUnitLink& serial);
 
     /**
-     * @brief Virtual destructor.
+     * @brief Default destructor
      */
-    virtual ~SystemFSMImpl() {};
+    virtual ~SystemFSMImpl() = default;
 
-    /**
-     * @brief Initializes the FSM, setting its initial state.
-     *        Typically called once in the main setup().
-     */
+    // ISystemFSM interface implementation
     void setup() override;
-
-    /**
-     * @brief Executes one cycle of the FSM logic.
-     *        This method should be called repeatedly in the main loop().
-     *        It checks for events, processes them, handles state transitions,
-     *        and performs actions based on the current state.
-     */
     void run() override;
-
-    /**
-     * @brief Gets the current operational mode of the FSM.
-     * @return The current SystemOpMode (e.g., INIT, AUTOMATIC, MANUAL).
-     */
     SystemOpMode getCurrentMode() const override;
-
-    /**
-     * @brief Gets the FSM's current target for the window opening percentage.
-     * @return The target window position as a percentage (0-100).
-     */
     int getWindowTargetPercentage() const override;
-
-    /**
-     * @brief Gets the last temperature value received by the FSM.
-     * @return The last known temperature, or a sentinel value if none received/valid.
-     */
     float getCurrentTemperature() const override;
 
 private:
-    // Dependencies injected via constructor (references to interface implementations)
-    ServoMotor& servoMotorCtrl;         ///< Controls the window servo motor.
-    UserInputSource& userInputCtrl;     ///< Provides button and potentiometer inputs.
-    ControlUnitLink& serialLinkCtrl;    ///< Handles serial communication with the Control Unit.
+    ServoMotor& servoMotorCtrl;         ///< Window servo motor controller
+    UserInputSource& userInputCtrl;     ///< Button and potentiometer interface
+    ControlUnitLink& serialLinkCtrl;    ///< Control Unit communication interface
+    
+    SystemOpMode currentMode;           ///< Current operational mode
+    int targetWindowPercentage;         ///< Target window position (0-100%)
+    float receivedTemperature;          ///< Last temperature from Control Unit
+    int lastPhysicalPotReading;         ///< Last potentiometer reading for change detection
 
-    // Internal state variables
-    SystemOpMode currentMode;           ///< The current operational mode of the FSM.
-    int targetWindowPercentage;         ///< Desired window opening percentage (0-100).
-    float receivedTemperature;          ///< Last temperature value received via serial command.
-    int lastPhysicalPotReading;         ///< Tracks the last known physical potentiometer reading in MANUAL mode.
-
-    // Internal helper methods for FSM logic
+    /** @brief Sentinel value for invalid/unset temperature */
+    static constexpr float INVALID_TEMPERATURE = -999.0f;
+    
+    /**
+     * @brief Detect and classify events from all sources
+     * @return Detected event type (NONE if no events)
+     */
     FsmEvent checkForEvents();
+    
+    /**
+     * @brief Parse serial command and extract event/value
+     * @param command Raw command string from serial link
+     * @param outEvent Detected event type (output parameter)
+     * @param outCmdValue Numeric value from command (output parameter)
+     */
     void processSerialCommand(const String& command, FsmEvent& outEvent, int& outCmdValue);
+    
+    /**
+     * @brief Handle state transition and entry actions
+     * @param newMode Target operational mode
+     */
     void handleStateTransition(SystemOpMode newMode);
 
-    // State-specific entry actions
+    // State entry actions
     void onEnterInit();
     void onEnterAutomatic();
     void onEnterManual();
 
-    // State-specific "do" actions (executed while in state)
+    // State-specific event processing
     void doStateActionAutomatic(FsmEvent event, int cmdValue);
     void doStateActionManual(FsmEvent event, int cmdValue);
 };

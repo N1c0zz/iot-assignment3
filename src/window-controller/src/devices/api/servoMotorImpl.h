@@ -1,37 +1,45 @@
 #ifndef SERVO_MOTOR_IMPL_H
 #define SERVO_MOTOR_IMPL_H
 
-#include "ServoMotor.h" // The interface this class implements
-#include <Arduino.h>    // For constrain(), map()
-#include <Servo.h>      // Arduino's standard Servo library
+#include "ServoMotor.h"
+#include <Arduino.h>
+#include <Servo.h>
 
 /**
  * @class ServoMotorImpl
- * @brief Implements the ServoMotor interface using the standard Arduino Servo library.
- *
- * This class controls a hobby servo motor connected to a PWM pin on an Arduino board.
- * It maps a percentage input (0-100%) to a specified angular range (minAngle to maxAngle).
+ * @brief Arduino Servo library implementation of ServoMotor interface
+ * 
+ * This class provides concrete servo motor control using the standard
+ * Arduino Servo library. It maps percentage-based position commands
+ * to angular servo positions within a configurable range.
  */
 class ServoMotorImpl : public ServoMotor {
 public:
     /**
-     * @brief Constructor for ServoMotorImpl.
-     * @param pin The Arduino PWM pin to which the servo's signal line is connected.
-     * @param minAngle The servo angle (in degrees) corresponding to 0% position.
-     * @param maxAngle The servo angle (in degrees) corresponding to 100% position.
+     * @brief Construct servo motor controller
+     * 
+     * @param pin Arduino PWM pin connected to servo signal line
+     * @param minAngle Servo angle (degrees) for 0% position (typically 0°)
+     * @param maxAngle Servo angle (degrees) for 100% position (typically 90° or 180°)
      */
     ServoMotorImpl(int pin, int minAngle, int maxAngle);
 
+    /**
+     * @brief Default destructor
+     */
+    virtual ~ServoMotorImpl() = default;
+
+    // ServoMotor interface implementation
     void setup() override;
     void setPositionPercentage(int percentage) override;
     int getCurrentPercentage() const override;
 
 private:
-    Servo servoObject;          ///< Instance of the Arduino Servo library. (Was ServoMotor)
-    int motorPin;               ///< Arduino pin connected to the servo's signal line.
-    int minAngleDegrees;        ///< Servo angle (degrees) for 0% position.
-    int maxAngleDegrees;        ///< Servo angle (degrees) for 100% position.
-    int currentMotorPercentage; ///< Current target position stored as a percentage.
+    Servo servoObject;              ///< Arduino Servo library instance
+    int motorPin;                   ///< PWM pin connected to servo signal line
+    int minAngleDegrees;            ///< Servo angle for 0% position
+    int maxAngleDegrees;            ///< Servo angle for 100% position
+    int currentMotorPercentage;     ///< Current target position (0-100%)
 };
 
 #endif // SERVO_MOTOR_IMPL_H
