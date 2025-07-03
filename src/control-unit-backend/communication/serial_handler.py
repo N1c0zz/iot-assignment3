@@ -19,10 +19,6 @@ from config.config import (
 
 logger = logging.getLogger(__name__)
 
-# Version identifier for debugging purposes
-SERIAL_HANDLER_FILE_VERSION = "1.0.0"
-
-
 class SerialHandler:
     """
     Handles serial communication with the Arduino window controller.
@@ -40,7 +36,6 @@ class SerialHandler:
             control_logic_instance: Reference to the main control logic instance
                                   for processing received events and sending commands.
         """
-        logger.info(f"SerialHandler initialized - Version: {SERIAL_HANDLER_FILE_VERSION}")
         self.control_logic = control_logic_instance
         self.ser = None
         self.is_running = False
@@ -96,16 +91,8 @@ class SerialHandler:
                 self.is_running = False
                 break
                 
-            except UnicodeDecodeError as e:
-                logger.warning(f"Could not decode serial data (raw: {line}): {e}", exc_info=True)
-                
-            except NameError as e:
-                logger.error(f"CRITICAL NAME_ERROR in serial listening: {e}", exc_info=True)
-                
             except Exception as e:
                 logger.error(f"Unexpected error in serial listening loop: {e}", exc_info=True)
-                
-            time.sleep(0.05)  # Small delay to prevent excessive CPU usage
             
         logger.info("Serial listening thread stopped.")
 
@@ -125,9 +112,7 @@ class SerialHandler:
                 self._handle_potentiometer_data(data_line)
             else:
                 logger.debug(f"Unknown data from Arduino: {data_line}")
-                
-        except NameError as e:
-            logger.error(f"CRITICAL NAME_ERROR in serial data processing: {e}", exc_info=True)
+
         except Exception as e:
             logger.error(f"Generic error processing serial data '{data_line}': {e}", exc_info=True)
 

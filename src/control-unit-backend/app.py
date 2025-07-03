@@ -28,7 +28,7 @@ from communication.mqtt_handler import MqttHandler
 from communication.serial_handler import SerialHandler
 from api.api_routes import api_bp
 
-# === Directory Configuration ===
+# Directory Configuration
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
 DASHBOARD_FRONTEND_DIR = os.path.join(BASE_DIR, '..', 'dashboard-frontend')
@@ -39,7 +39,7 @@ if not os.path.exists(LOG_DIR):
 
 LOG_FILE_PATH = os.path.join(LOG_DIR, 'control_unit.log')
 
-# === Logging Configuration ===
+# Logging Configuration
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -48,9 +48,13 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
+
+# Disable werkzeug HTTP logs
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
 logger = logging.getLogger(__name__)
 
-# === Global Component Instances ===
+# Global Component Instances
 control_logic_instance = None
 mqtt_handler_instance = None
 serial_handler_instance = None
@@ -156,7 +160,7 @@ def establish_connections(mqtt_handler, serial_handler):
     Returns:
         bool: True if all connections successful, False otherwise
     """
-    # Step 1: Connect to Arduino (critical for window control)
+    # Connect to Arduino
     logger.info("Connecting to Arduino...")
     if not serial_handler.connect():
         logger.warning("Could not connect to Arduino. Window control will be unavailable.")
@@ -164,7 +168,7 @@ def establish_connections(mqtt_handler, serial_handler):
     else:
         logger.info("Arduino connection established successfully.")
 
-    # Step 2: Connect to MQTT broker
+    # Connect to MQTT broker
     logger.info("Connecting to MQTT broker...")
     mqtt_handler.connect()
     mqtt_handler.start_listening_loop()
@@ -224,39 +228,39 @@ def main():
     logger.info("=" * 60)
 
     try:
-        # Step 1: Initialize core control logic
+        # Initialize core control logic
         control_logic_instance = initialize_control_logic()
 
-        # Step 2: Initialize communication handlers
+        # Initialize communication handlers
         mqtt_handler_instance, serial_handler_instance = initialize_communication_handlers(control_logic_instance)
 
-        # Step 3: Establish connections to external systems
+        # Establish connections to external systems
         establish_connections(mqtt_handler_instance, serial_handler_instance)
 
-        # Step 4: Initialize system state (now that all connections are ready)
+        # Initialize system state
         logger.info("Initializing system state...")
         control_logic_instance._initialize_state()
 
-        # Step 5: Create Flask application
+        # Create Flask application
         flask_app = create_flask_app(control_logic_instance)
 
-        # Step 6: Set up signal handlers for graceful shutdown
+        # Set up signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
         signal.signal(signal.SIGTERM, signal_handler)  # kill command
 
-        # Step 7: Start the web server
+        # Start the web server
         logger.info("=" * 60)
         logger.info(f"Control Unit Backend ready!")
         logger.info(f"Dashboard available at: http://{API_HOST}:{API_PORT}")
         logger.info("Press Ctrl+C to shutdown")
         logger.info("=" * 60)
 
-        # Start Flask server (blocking call)
+        # Start Flask server
         flask_app.run(
             host=API_HOST, 
             port=API_PORT, 
-            debug=False,        # Disable debug mode for production
-            use_reloader=False  # Disable reloader to prevent thread issues
+            debug=False,
+            use_reloader=False
         )
 
     except KeyboardInterrupt:
@@ -264,7 +268,7 @@ def main():
     except Exception as e:
         logger.error(f"Fatal error during startup: {e}", exc_info=True)
     finally:
-        # Final cleanup (backup to signal handler)
+        # Final cleanup
         logger.info("Performing final cleanup...")
         if mqtt_handler_instance and mqtt_handler_instance.connected:
             mqtt_handler_instance.stop_listening_loop()

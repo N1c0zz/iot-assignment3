@@ -152,9 +152,6 @@ class MqttHandler:
         except ConnectionRefusedError:
             logger.error(f"MQTT connection refused. Is the broker running at {MQTT_BROKER_ADDRESS}:{MQTT_BROKER_PORT}?")
             self.connected = False
-        except OSError as e:
-            logger.error(f"MQTT OS error during connect: {e}")
-            self.connected = False
         except Exception as e:
             logger.error(f"MQTT connection failed with an unexpected error: {e}", exc_info=True)
             self.connected = False

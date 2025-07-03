@@ -43,7 +43,7 @@ class ControlLogic:
             mqtt_handler: Optional MQTT handler instance for ESP32 communication
             serial_handler: Optional serial handler instance for Arduino communication
         """
-        # Communication handlers (injected dependencies)
+        # Communication handlers 
         self.mqtt_handler = mqtt_handler
         self.serial_handler = serial_handler
 
@@ -81,11 +81,6 @@ class ControlLogic:
             self.esp_last_status_data = full_data_payload
             
         logger.debug(f"ESP status updated: {status}")
-        
-        # Future enhancements could include:
-        # - System notifications for offline sensors
-        # - Fallback modes when sensor is unavailable
-        # - Dashboard alerts for sensor issues
 
     def _initialize_state(self):
         """
@@ -177,7 +172,6 @@ class ControlLogic:
             return
 
         # If system is in ALARM state, don't evaluate transitions
-        # ALARM state can only be reset by operator intervention
         if self.system_state == STATE_ALARM:
             logger.debug("System in ALARM state - waiting for operator intervention")
             return
@@ -343,11 +337,10 @@ class ControlLogic:
                 logger.info(f"Manual window opening set to {percentage*100:.0f}% (source: {source})")
                 
                 # Send SET_POS command only if request comes from Dashboard
-                # (potentiometer changes are already reflected physically)
                 if source == "dashboard" and self.serial_handler:
                     self.serial_handler.send_window_command(self.window_opening_percentage)
                 
-                # Always send temperature update for LCD display
+                # Send temperature update for LCD display
                 if self.serial_handler and self.current_temperature is not None:
                     self.serial_handler.send_temperature_to_arduino(self.current_temperature)
                     
