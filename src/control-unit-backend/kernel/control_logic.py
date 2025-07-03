@@ -128,15 +128,15 @@ class ControlLogic:
 
         if self.current_mode == MODE_AUTOMATIC:
             self._evaluate_automatic_mode()
-        else:  # MANUAL mode
+        else:
             # In manual mode, only send temperature to Arduino for LCD display
             if self.serial_handler and self.current_temperature is not None:
                 self.serial_handler.send_temperature_to_arduino(self.current_temperature)
+            # Keep evaluating system state for sampling frequency
+            self._evaluate_system_state_for_sampling()
 
     def _update_temperature_statistics(self):
-        """
-        Update temperature statistics (average, min, max) from recent readings.
-        """
+        """ Update temperature statistics (average, min, max) from recent readings."""
         if self.last_n_temperatures:
             self.avg_temp = sum(self.last_n_temperatures) / len(self.last_n_temperatures)
             self.min_temp = min(self.last_n_temperatures)
@@ -148,15 +148,7 @@ class ControlLogic:
             self.max_temp = None
 
     def _evaluate_automatic_mode(self):
-        """
-        Evaluate system state and control actions in automatic mode.
-        
-        Implements the main finite state machine logic:
-        - Determines system state based on temperature thresholds
-        - Controls window opening proportionally
-        - Manages sampling frequency
-        - Handles alarm conditions
-        """
+        """Evaluate system state and control actions in automatic mode."""
         if self.system_state == STATE_ALARM:
             logger.debug("System in ALARM state - waiting for operator intervention")
             return
@@ -165,9 +157,33 @@ class ControlLogic:
             logger.warning("Cannot evaluate automatic mode: current_temperature is None")
             return
 
+        # Store previous window opening before evaluating system state
+        previous_window_opening = self.window_opening_percentage
+
+        # Evaluate system state and update sampling frequency
+        self._evaluate_system_state_for_sampling()
+
+        # In AUTOMATIC mode, also control the window
+        if self.serial_handler:
+            window_change = abs(previous_window_opening - self.window_opening_percentage)
+            if window_change > 0.001:  # Threshold to avoid unnecessary commands
+                logger.info(f"AUTOMATIC: Window position changed to {self.window_opening_percentage*100:.0f}%")
+                self.serial_handler.send_window_command(self.window_opening_percentage)
+
+    def _evaluate_system_state_for_sampling(self):
+        """Evaluate system state and manage sampling frequency (used in both modes)."""
+        if self.current_temperature is None:
+            logger.warning("Cannot evaluate system state: current_temperature is None")
+            return
+
+        # If system is in ALARM state, don't evaluate transitions
+        # ALARM state can only be reset by operator intervention
+        if self.system_state == STATE_ALARM:
+            logger.debug("System in ALARM state - waiting for operator intervention")
+            return
+
         # Store previous state for change detection
         previous_state = self.system_state
-        previous_window_opening = self.window_opening_percentage
         new_sampling_freq = None
 
         # State machine logic based on temperature thresholds
@@ -183,7 +199,6 @@ class ControlLogic:
             self._transition_to_too_hot_state()
             new_sampling_freq = SAMPLING_FREQUENCY_F2_S
 
-        # Log state changes
         if previous_state != self.system_state:
             logger.info(f"System state changed: {previous_state} -> {self.system_state}")
 
@@ -191,42 +206,43 @@ class ControlLogic:
         if self.mqtt_handler and new_sampling_freq:
             self.mqtt_handler.publish_sampling_frequency(new_sampling_freq)
 
-        # Send window position command if significantly changed
-        if self.serial_handler:
-            window_change = abs(previous_window_opening - self.window_opening_percentage)
-            if window_change > 0.001:  # Threshold to avoid unnecessary commands
-                logger.info(f"AUTOMATIC: Window position changed to {self.window_opening_percentage*100:.0f}%")
-                self.serial_handler.send_window_command(self.window_opening_percentage)
-
     def _transition_to_normal_state(self):
         """Handle transition to NORMAL state."""
         self.system_state = STATE_NORMAL
-        self.window_opening_percentage = WINDOW_CLOSED_PERCENTAGE
+        # Only update window position in AUTOMATIC mode
+        if self.current_mode == MODE_AUTOMATIC:
+            self.window_opening_percentage = WINDOW_CLOSED_PERCENTAGE
         self.too_hot_start_time = None  # Reset alarm timer
 
     def _transition_to_hot_state(self):
         """Handle transition to HOT state with proportional window control."""
         self.system_state = STATE_HOT
         
-        # Calculate proportional window opening: linear interpolation between T1 and T2
-        # When T = T1: window opens to 1%
-        # When T = T2: window opens to 100%
-        if T2_THRESHOLD > T1_THRESHOLD:
-            temp_range = T2_THRESHOLD - T1_THRESHOLD
-            temp_offset = self.current_temperature - T1_THRESHOLD
-            self.window_opening_percentage = (temp_offset / temp_range * 0.99) + 0.01
-        else:
-            # Edge case: if T1 == T2, use binary logic
-            self.window_opening_percentage = 0.01 if self.current_temperature <= T1_THRESHOLD else WINDOW_FULLY_OPEN_PERCENTAGE
+        # Only calculate and update window position in AUTOMATIC mode
+        if self.current_mode == MODE_AUTOMATIC:
+            # Calculate proportional window opening: linear interpolation between T1 and T2
+            # When T = T1: window opens to 1%
+            # When T = T2: window opens to 100%
+            if T2_THRESHOLD > T1_THRESHOLD:
+                temp_range = T2_THRESHOLD - T1_THRESHOLD
+                temp_offset = self.current_temperature - T1_THRESHOLD
+                self.window_opening_percentage = (temp_offset / temp_range * 0.99) + 0.01
+            else:
+                # Edge case: if T1 == T2, use binary logic
+                self.window_opening_percentage = 0.01 if self.current_temperature <= T1_THRESHOLD else WINDOW_FULLY_OPEN_PERCENTAGE
 
-        # Constrain to valid range
-        self.window_opening_percentage = max(0.01, min(WINDOW_FULLY_OPEN_PERCENTAGE, self.window_opening_percentage))
+            # Constrain to valid range
+            self.window_opening_percentage = max(0.01, min(WINDOW_FULLY_OPEN_PERCENTAGE, self.window_opening_percentage))
+        
         self.too_hot_start_time = None  # Reset alarm timer
 
     def _transition_to_too_hot_state(self):
         """Handle transition to TOO_HOT state and alarm management."""
         self.system_state = STATE_TOO_HOT
-        self.window_opening_percentage = WINDOW_FULLY_OPEN_PERCENTAGE
+        
+        # Only update window position in AUTOMATIC mode
+        if self.current_mode == MODE_AUTOMATIC:
+            self.window_opening_percentage = WINDOW_FULLY_OPEN_PERCENTAGE
         
         # Start or continue alarm timer
         if self.too_hot_start_time is None:
@@ -283,10 +299,6 @@ class ControlLogic:
     def _on_enter_manual_mode(self):
         """Actions to perform when entering MANUAL mode."""
         logger.info("Entering MANUAL mode")
-        
-        # Switch to low frequency sampling in manual mode
-        if self.mqtt_handler:
-            self.mqtt_handler.publish_sampling_frequency(SAMPLING_FREQUENCY_F1_S)
             
         # Send current temperature to Arduino for LCD display
         if self.serial_handler and self.current_temperature is not None:
@@ -344,21 +356,29 @@ class ControlLogic:
 
         logger.info("ALARM state reset by operator")
         
-        # Reset alarm timer and return to normal state
+        # Reset alarm timer and force return to NORMAL state
         self.system_state = STATE_NORMAL
         self.too_hot_start_time = None
         
-        # Re-evaluate system state based on current temperature
+        # In AUTOMATIC mode, set window to closed position (NORMAL state behavior)
         if self.current_mode == MODE_AUTOMATIC:
-            self._evaluate_automatic_mode()
+            self.window_opening_percentage = WINDOW_CLOSED_PERCENTAGE
             
         # Update Arduino with current system state
         if self.serial_handler:
             self.serial_handler.send_system_mode(self.current_mode)
             
+            # Send window command if in automatic mode
+            if self.current_mode == MODE_AUTOMATIC:
+                self.serial_handler.send_window_command(self.window_opening_percentage)
+            
             # Send temperature if in manual mode
             if self.current_mode == MODE_MANUAL and self.current_temperature is not None:
                 self.serial_handler.send_temperature_to_arduino(self.current_temperature)
+                
+        # Set low frequency sampling for NORMAL state
+        if self.mqtt_handler:
+            self.mqtt_handler.publish_sampling_frequency(SAMPLING_FREQUENCY_F1_S)
                 
         return True
 

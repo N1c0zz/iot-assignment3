@@ -87,6 +87,10 @@ int ArduinoPinInput::getPotentiometerPercentage() {
     // Calculate moving average
     int averageRawValue = potTotal / POT_NUM_SAMPLES;
 
-    // Map from ADC range (0-1023) to percentage range (0-100)
-    return map(averageRawValue, 0, 1023, 0, 100);
+    // Map from practical ADC range to percentage range (0-100)
+    // Use a slightly reduced range to account for physical limitations
+    int mappedValue = map(averageRawValue, 10, 1013, 0, 100);
+
+    // Constrain to ensure to never go outside 0-100 range
+    return constrain(mappedValue, 0, 100);
 }
