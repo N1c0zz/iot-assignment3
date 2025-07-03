@@ -46,7 +46,7 @@ void MqttManagerImpl::handleMqttMessage(char* topic, byte* payload, unsigned int
     Serial.print("MQTT: Frequency config received: ");
     Serial.println(message);
 
-    // Simple JSON parsing: look for "frequency":value
+    // JSON parsing look for format "frequency":value
     int freqIndex = message.indexOf("\"frequency\":");
     if (freqIndex >= 0) {
         int valueStart = freqIndex + 12; // Skip past "frequency":
@@ -57,7 +57,7 @@ void MqttManagerImpl::handleMqttMessage(char* topic, byte* payload, unsigned int
             long frequencySeconds = message.substring(valueStart, valueEnd).toInt();
             unsigned long intervalMs = frequencySeconds * 1000;
             
-            // Basic validation: 1 second to 10 minutes
+            // Validation for incoming sampling interval
             if (intervalMs >= 1000 && intervalMs <= 600000) {
                 _newSamplingInterval = intervalMs;
                 _newIntervalAvailable = true;
@@ -73,7 +73,8 @@ void MqttManagerImpl::handleMqttMessage(char* topic, byte* payload, unsigned int
 
 void MqttManagerImpl::setup() {
     _mqttClient.setServer(_host, _port);
-    _mqttClient.setCallback(staticMqttCallback);
+    // Set callback function for _mqttClient PubSubClient library instance
+    _mqttClient.setCallback(staticMqttCallback); 
     Serial.print("MQTT Manager: Setup completed. Client ID: ");
     Serial.println(_clientId);
 }
@@ -130,7 +131,7 @@ bool MqttManagerImpl::publishTemperature(float temperature) {
         return false;
     }
 
-    // Simple JSON format: {"temperature":XX.YY}
+    // JSON format: {"temperature":XX.YY}
     String payload = "{\"temperature\":" + String(temperature, 2) + "}";
     
     Serial.print("MQTT: Publishing temperature: ");
@@ -144,7 +145,7 @@ bool MqttManagerImpl::publishStatus(const char* statusMessage) {
         return false;
     }
 
-    // Simple JSON format: {"status":"message"}
+    // JSON format: {"status":"message"}
     String payload = "{\"status\":\"" + String(statusMessage) + "\"}";
     
     return _mqttClient.publish(MQTT_TOPIC_STATUS, payload.c_str(), true);

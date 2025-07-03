@@ -1,59 +1,61 @@
 #include <Arduino.h>
 #include "config/config.h"
 
-// Interface headers (for type declarations)
+// Interface headers for component abstraction
 #include "devices/api/LcdView.h"
 #include "devices/api/ServoMotor.h"
 #include "devices/api/UserInputSource.h"
 #include "devices/api/ControlUnitLink.h"
 #include "kernel/api/ISystemFSM.h"
 
-// Implementation headers (for object instantiation)
+// Implementation headers
 #include "devices/api/ServoMotorImpl.h"
 #include "devices/api/I2CLcdView.h"
 #include "devices/api/ArduinoPinInput.h"
 #include "devices/api/ArduinoSerialLink.h"
 #include "kernel/api/SystemFSMImpl.h"
 
-// Concrete hardware implementations
-ServoMotorImpl actualServo(SERVO_MOTOR_PIN, WINDOW_SERVO_MIN_ANGLE_DEGREES, WINDOW_SERVO_MAX_ANGLE_DEGREES);
-I2CLcdView actualLcd(LCD_I2C_ADDRESS, LCD_COLUMNS, LCD_ROWS);
-ArduinoPinInput actualUserInput(MODE_BUTTON_PIN, POTENTIOMETER_PIN, BUTTON_DEBOUNCE_DELAY_MS);
-ArduinoSerialLink actualSerialLink;
-
-// Interface pointers for dependency injection
-ServoMotor* pServoMotor = &actualServo;
-LcdView* pLcdView = &actualLcd;
-UserInputSource* pUserInput = &actualUserInput;
-ControlUnitLink* pSerialLink = &actualSerialLink;
-
-// FSM instance (created during setup)
-ISystemFSM* pStateMachine = nullptr;
+// Pointers to interfaces for component decoupling
+LcdView* lcdView = nullptr;
+ServoMotor* servoMotor = nullptr;
+UserInputSource* userInputSource = nullptr;
+ControlUnitLink* controlUnitLink = nullptr;
+ISystemFSM* systemFsm = nullptr;
 
 /**
  * @brief Arduino setup function - runs once at startup
  * 
  * Initializes all hardware components and creates the main
- * FSM instance with proper dependency injection.
+ * FSM instance.
  */
 void setup() {
-    // Initialize serial communication first for debugging capability
-    pSerialLink->setup(SERIAL_COM_BAUD_RATE);
-    Serial.println(F("--- Window Controller Starting ---"));
+    Serial.begin(SERIAL_COM_BAUD_RATE);
+    while (!Serial) { ; } // Wait for serial port to be ready
+    Serial.println(F("\n\n[Smart Window Controller - Arduino] System Starting..."));
 
-    // Initialize hardware components through their interfaces
-    pServoMotor->setup();
-    pLcdView->setup();      // Shows boot message automatically
-    pUserInput->setup();
+    // Create instances of concrete implementations
+    lcdView = new I2CLcdView(LCD_I2C_ADDRESS, LCD_COLUMNS, LCD_ROWS);
+    servoMotor = new ServoMotorImpl(SERVO_MOTOR_PIN, WINDOW_SERVO_MIN_ANGLE_DEGREES, WINDOW_SERVO_MAX_ANGLE_DEGREES);
+    userInputSource = new ArduinoPinInput(MODE_BUTTON_PIN, POTENTIOMETER_PIN, BUTTON_DEBOUNCE_DELAY_MS);
+    controlUnitLink = new ArduinoSerialLink();
 
-    // Create FSM with injected dependencies
-    pStateMachine = new SystemFSMImpl(*pServoMotor, *pUserInput, *pSerialLink);
-    pStateMachine->setup();
+    // Create FSM instance, passing references to required modules
+    systemFsm = new SystemFSMImpl(*servoMotor, *userInputSource, *controlUnitLink);
+
+    // Setup individual modules
+    lcdView->setup();
+    lcdView->displayBootingMessage();
+    servoMotor->setup();
+    userInputSource->setup();
+    controlUnitLink->setup(SERIAL_COM_BAUD_RATE);
+
+    // Setup FSM
+    systemFsm->setup();
 
     // Display system ready message
-    pLcdView->displayReadyMessage();
+    lcdView->displayReadyMessage();
 
-    Serial.println(F("--- System Ready ---"));
+    Serial.println(F("System initialization completed."));
 }
 
 /**
@@ -65,16 +67,16 @@ void setup() {
  */
 void loop() {
     // Execute one FSM cycle (event processing + state transitions)
-    if (pStateMachine) {
-        pStateMachine->run();
+    if (systemFsm) {
+        systemFsm->run();
     }
 
     // Update LCD display with current system status
-    if (pLcdView && pStateMachine) {
-        pLcdView->update(
-            (pStateMachine->getCurrentMode() == SystemOpMode::AUTOMATIC),
-            pStateMachine->getWindowTargetPercentage(),
-            pStateMachine->getCurrentTemperature()
+    if (lcdView && systemFsm) {
+        lcdView->update(
+            (systemFsm->getCurrentMode() == SystemOpMode::AUTOMATIC),
+            systemFsm->getWindowTargetPercentage(),
+            systemFsm->getCurrentTemperature()
         );
     }
 }

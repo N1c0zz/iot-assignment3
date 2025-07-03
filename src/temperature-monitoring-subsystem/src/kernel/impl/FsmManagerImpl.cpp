@@ -14,8 +14,6 @@ FsmManagerImpl::FsmManagerImpl(LedStatus& ledCtrl, TemperatureManager& tempCtrl,
       _currentSamplingIntervalMs(TEMP_SAMPLE_INTERVAL_DEFAULT_MS) {}
 
 void FsmManagerImpl::setup() {
-    // Individual module setup is handled externally in main.cpp
-    // FSM setup initializes state and timing
     Serial.println("FSM Manager: Setup. Initial state: INITIALIZING");
     _lastWiFiAttemptTime = millis(); // Initialize timer for first WiFi attempt
 }
@@ -36,9 +34,6 @@ void FsmManagerImpl::checkAndUpdateSamplingInterval() {
     unsigned long newInterval = mqttController.getNewSamplingIntervalMs();
     if (newInterval > 0) {
         _currentSamplingIntervalMs = newInterval;
-        Serial.print("FSM Manager: Sampling interval updated to: ");
-        Serial.print(_currentSamplingIntervalMs);
-        Serial.println(" ms");
     }
 }
 
@@ -51,10 +46,6 @@ void FsmManagerImpl::run() {
     switch (_currentState) {
         case STATE_INITIALIZING:
             handleInitializingState();
-            break;
-
-        case STATE_WIFI_CONNECTING:
-            // Handled implicitly by handleInitializingState and connect logic
             break;
 
         case STATE_WIFI_CONNECTED:
@@ -86,7 +77,7 @@ void FsmManagerImpl::run() {
             break;
 
         default:
-            Serial.println("FSM Manager: Unknown state! Returning to INITIALIZING.");
+            Serial.println("FSM Manager: Unknown state. Returning to INITIALIZING.");
             ledController.indicateNetworkError();
             _currentState = STATE_INITIALIZING;
             break;

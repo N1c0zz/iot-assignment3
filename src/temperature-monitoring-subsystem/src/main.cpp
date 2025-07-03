@@ -1,13 +1,3 @@
-/**
- * @file main.cpp
- * @brief Main application for the Smart Temperature Monitoring System.
- * 
- * This file contains the setup() and loop() functions for the ESP32.
- * It initializes all hardware components (LEDs, temperature sensor),
- * network managers (WiFi, MQTT), and the finite state machine (FSM),
- * then repeatedly executes the system logic in the main loop.
- */
-
 #include <Arduino.h>
 #include "config/config.h"
 
@@ -18,27 +8,19 @@
 #include "kernel/connection/api/MqttManager.h"
 #include "kernel/api/IFsmManager.h"
 
-// Implementation headers (needed for instantiation)
+// Implementation headers
 #include "devices/api/LedStatusImpl.h"
 #include "devices/api/TemperatureManagerImpl.h"
 #include "kernel/connection/api/WifiManagerImpl.h"
 #include "kernel/connection/api/MqttManagerImpl.h"
 #include "kernel/api/FsmManagerImpl.h"
 
-// === Pointers to interfaces for component decoupling ===
+// Pointers to interfaces for component decoupling
 LedStatus* ledStatus = nullptr;
 TemperatureManager* temperatureManager = nullptr;
 WifiManager* wifiManager = nullptr;
 MqttManager* mqttManager = nullptr;
 IFsmManager* systemFsm = nullptr;
-
-// === Configuration Constants ===
-// These could be moved to config.h if shared across files
-const char* WIFI_NETWORK_SSID = WIFI_SSID;
-const char* WIFI_NETWORK_PASSWORD = WIFI_PASSWORD;
-const char* MQTT_BROKER_HOST = MQTT_SERVER_HOST;
-const int MQTT_BROKER_PORT = MQTT_SERVER_PORT;
-const char* MQTT_CLIENT_PREFIX = MQTT_CLIENT_ID_PREFIX;
 
 /**
  * @brief Setup function, runs once at system startup.
@@ -54,8 +36,8 @@ void setup() {
     // Create instances of concrete implementations
     ledStatus = new LedStatusImpl();
     temperatureManager = new TemperatureManagerImpl();
-    wifiManager = new WifiManagerImpl(WIFI_NETWORK_SSID, WIFI_NETWORK_PASSWORD);
-    mqttManager = new MqttManagerImpl(MQTT_BROKER_HOST, MQTT_BROKER_PORT, MQTT_CLIENT_PREFIX, wifiManager);
+    wifiManager = new WifiManagerImpl(WIFI_SSID, WIFI_PASSWORD);
+    mqttManager = new MqttManagerImpl(MQTT_SERVER_HOST, MQTT_SERVER_PORT, MQTT_CLIENT_ID_PREFIX, wifiManager);
 
     // Create FSM instance, passing references to required modules
     systemFsm = new FsmManagerImpl(*ledStatus, *temperatureManager, *wifiManager, *mqttManager);
@@ -67,7 +49,7 @@ void setup() {
     wifiManager->setup();
     mqttManager->setup();
 
-    // Setup FSM (may perform additional state initialization)
+    // Setup FSM
     systemFsm->setup();
 
     Serial.println("System initialization completed.");
