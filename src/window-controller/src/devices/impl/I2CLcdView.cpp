@@ -10,7 +10,7 @@ I2CLcdView::I2CLcdView(uint8_t i2cAddress, uint8_t cols, uint8_t rows)
     , prevIsAlarmState(false)
     , forceUpdate(true)                 // Force complete refresh on first update
 {
-    // Constructor body intentionally minimal - initialization in setup()
+    // Initialization in setup()
 }
 
 void I2CLcdView::setup() {

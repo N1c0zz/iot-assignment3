@@ -4,6 +4,21 @@
 #include "config/config.h"
 
 /**
+ * @enum SystemOpMode
+ * @brief Defines the operational modes of the window controller system
+ * 
+ * The system operates in three distinct modes managed by the FSM:
+ * - INIT: Transient initialization state
+ * - AUTOMATIC: Window position controlled by remote commands
+ * - MANUAL: Window position controlled by local potentiometer
+ */
+enum class SystemOpMode {
+    INIT,       ///< System initialization state
+    AUTOMATIC,  ///< Automatic mode - remote control via serial commands
+    MANUAL      ///< Manual mode - local control via potentiometer
+};
+
+/**
  * @class ISystemFSM
  * @brief Abstract interface for window controller state management
  * 

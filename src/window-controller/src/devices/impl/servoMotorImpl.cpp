@@ -7,7 +7,7 @@ ServoMotorImpl::ServoMotorImpl(int pin, int minAngle, int maxAngle)
     , maxAngleDegrees(maxAngle)
     , currentMotorPercentage(0)
 {
-    // Constructor body intentionally empty - initialization done in setup()
+    // Initialization done in setup()
 }
 
 void ServoMotorImpl::setup() {

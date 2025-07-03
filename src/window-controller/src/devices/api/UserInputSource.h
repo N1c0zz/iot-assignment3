@@ -37,7 +37,7 @@ public:
      * @brief Get filtered potentiometer reading as percentage
      * 
      * Reads the potentiometer value, applies appropriate filtering
-     * (such as moving average), and returns the result as a percentage.
+     * (moving average), and returns the result as a percentage.
      * 
      * @return Filtered potentiometer value as percentage (0-100)
      */

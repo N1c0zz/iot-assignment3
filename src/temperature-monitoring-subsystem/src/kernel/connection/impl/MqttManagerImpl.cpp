@@ -2,7 +2,7 @@
 #include "../../../config/config.h"
 #include <Arduino.h>
 
-// Static instance pointer for callback routing
+// Static instance pointer for callback
 MqttManagerImpl* MqttManagerImpl::_instance = nullptr;
 
 MqttManagerImpl::MqttManagerImpl(const char* host, int port, const char* clientIdPrefix, WifiManager* wifiManager)

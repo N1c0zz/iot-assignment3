@@ -3,7 +3,7 @@
 
 WifiManagerImpl::WifiManagerImpl(const char* ssid, const char* password)
     : _ssid(ssid), _password(password) {
-    // Constructor stores WiFi credentials
+    // Constructor set WiFi credentials
 }
 
 void WifiManagerImpl::setup() {

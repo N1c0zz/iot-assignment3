@@ -73,7 +73,7 @@ private:
     int targetWindowPercentage;         ///< Target window position (0-100%)
     float receivedTemperature;          ///< Last temperature from Control Unit
     int lastPhysicalPotReading;         ///< Last potentiometer reading for change detection
-    bool systemInAlarmState;           ///< Flag to track if system is in ALARM state
+    bool systemInAlarmState;            ///< Flag to track if system is in ALARM state
 
     /** @brief Sentinel value for invalid/unset temperature */
     static constexpr float INVALID_TEMPERATURE = -999.0f;

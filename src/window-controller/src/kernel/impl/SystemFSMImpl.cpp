@@ -12,7 +12,7 @@ SystemFSMImpl::SystemFSMImpl(ServoMotor& servo, UserInputSource& input, ControlU
     , lastPhysicalPotReading(0)
     , systemInAlarmState(false)
 {
-    // Constructor intentionally minimal - initialization in setup()
+    // Initialization in setup()
 }
 
 void SystemFSMImpl::setup() {

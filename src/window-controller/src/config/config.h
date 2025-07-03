@@ -76,23 +76,4 @@ const unsigned int SERIAL_COMMAND_BUFFER_SIZE = 64;
 /** @brief LCD display refresh interval (milliseconds) */
 const unsigned long LCD_REFRESH_INTERVAL_MS = 250;
 
-//=============================================================================
-// SYSTEM OPERATION MODES
-//=============================================================================
-
-/**
- * @enum SystemOpMode
- * @brief Defines the operational modes of the window controller system
- * 
- * The system operates in three distinct modes managed by the FSM:
- * - INIT: Transient initialization state
- * - AUTOMATIC: Window position controlled by remote commands
- * - MANUAL: Window position controlled by local potentiometer
- */
-enum class SystemOpMode {
-    INIT,       ///< System initialization state
-    AUTOMATIC,  ///< Automatic mode - remote control via serial commands
-    MANUAL      ///< Manual mode - local control via potentiometer
-};
-
 #endif // CONFIG_H
