@@ -202,6 +202,10 @@ class ControlLogic:
         if previous_state != self.system_state:
             logger.info(f"System state changed: {previous_state} -> {self.system_state}")
 
+            # Send alarm state to Arduino
+            if self.serial_handler:
+                self.serial_handler.send_alarm_state(self.system_state == STATE_ALARM)
+
         # Update MQTT sampling frequency if changed
         if self.mqtt_handler and new_sampling_freq:
             self.mqtt_handler.publish_sampling_frequency(new_sampling_freq)
@@ -265,6 +269,11 @@ class ControlLogic:
         if mode not in [MODE_AUTOMATIC, MODE_MANUAL]:
             logger.error(f"Invalid mode requested: {mode}")
             return False
+        
+        # Block mode changes if system is in ALARM state
+        if self.system_state == STATE_ALARM:
+            logger.warning("Cannot change mode: system in ALARM state")
+            return False
 
         if self.current_mode != mode:
             previous_mode = self.current_mode
@@ -319,6 +328,11 @@ class ControlLogic:
             logger.warning("Cannot set manual window opening: system not in MANUAL mode")
             return False
 
+        # Block manual control if system is in ALARM state
+        if self.system_state == STATE_ALARM:
+            logger.warning("Cannot set manual window opening: system in ALARM state")
+            return False
+
         try:
             # Convert string percentage to float (0.0-1.0)
             percentage = max(0.0, min(100.0, float(percentage_str))) / 100.0
@@ -359,6 +373,10 @@ class ControlLogic:
         # Reset alarm timer and force return to NORMAL state
         self.system_state = STATE_NORMAL
         self.too_hot_start_time = None
+
+        # Send alarm state reset to Arduino
+        if self.serial_handler:
+            self.serial_handler.send_alarm_state(False)
         
         # In AUTOMATIC mode, set window to closed position (NORMAL state behavior)
         if self.current_mode == MODE_AUTOMATIC:

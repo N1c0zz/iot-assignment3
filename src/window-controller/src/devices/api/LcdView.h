@@ -48,7 +48,7 @@ public:
      * @param windowPercentage Current window opening percentage (0-100)
      * @param currentTemperature Current temperature reading in Celsius
      */
-    virtual void update(bool isAutoMode, int windowPercentage, float currentTemperature) = 0;
+    virtual void update(bool isAutoMode, int windowPercentage, float currentTemperature, bool isAlarmState = false) = 0;
 };
 
 #endif // LCD_VIEW_H

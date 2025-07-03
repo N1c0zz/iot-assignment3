@@ -233,6 +233,12 @@ class SerialHandler:
             command = f"TEMP:{temperature:.1f}"
             self._send_command(command)
 
+    def send_alarm_state(self, is_alarm):
+        """Send alarm state to Arduino."""
+        alarm_value = 1 if is_alarm else 0
+        command = f"ALARM_STATE:{alarm_value}"
+        self._send_command(command)
+
     def stop_listening(self):
         """
         Stop the serial listening thread and close the serial connection.

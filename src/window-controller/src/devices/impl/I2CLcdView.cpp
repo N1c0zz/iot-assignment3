@@ -7,6 +7,7 @@ I2CLcdView::I2CLcdView(uint8_t i2cAddress, uint8_t cols, uint8_t rows)
     , prevIsAutoMode(false)
     , prevWindowPercentage(-1)          // Invalid initial value to force first update
     , prevCurrentTemperature(INVALID_TEMPERATURE)
+    , prevIsAlarmState(false)
     , forceUpdate(true)                 // Force complete refresh on first update
 {
     // Constructor body intentionally minimal - initialization in setup()
@@ -44,7 +45,7 @@ void I2CLcdView::displayReadyMessage() {
     clear();
 }
 
-void I2CLcdView::update(bool isAutoMode, int windowPercentage, float currentTemperature) {
+void I2CLcdView::update(bool isAutoMode, int windowPercentage, float currentTemperature, bool isAlarmState) {
     unsigned long currentTimeMs = millis();
 
     // Determine if display content has changed since last update
@@ -60,9 +61,33 @@ void I2CLcdView::update(bool isAutoMode, int windowPercentage, float currentTemp
                        temperatureChanged ||
                        (currentTimeMs - lastUpdateTimeMs >= LCD_REFRESH_INTERVAL_MS);
 
+    // Check if alarm state changed
+    bool alarmStateChanged = (isAlarmState != prevIsAlarmState);
+
     // Skip update if not needed
     if (!updateNeeded) {
         return;
+    }
+
+    // If system is in alarm state, show alarm message
+    if (isAlarmState) {
+        // Only update if alarm state just changed or force update
+        if (alarmStateChanged || forceUpdate) {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print(F("ALARM STATE"));
+            lcd.setCursor(0, 1);
+            lcd.print(F("Reset Required"));
+            forceUpdate = false;
+        }
+        prevIsAlarmState = isAlarmState;
+        return;
+    }
+
+    // If just exited alarm state, clear display
+    if (alarmStateChanged && !isAlarmState) {
+        lcd.clear();
+        forceUpdate = true;
     }
 
     // Clear display if mode changed or force update requested
@@ -70,6 +95,9 @@ void I2CLcdView::update(bool isAutoMode, int windowPercentage, float currentTemp
         lcd.clear();
     }
     forceUpdate = false;
+
+    // Update previous alarm state at the end
+    prevIsAlarmState = isAlarmState;
 
     //=========================================================================
     // LINE 0: OPERATIONAL MODE DISPLAY

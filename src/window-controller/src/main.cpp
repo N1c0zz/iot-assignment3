@@ -76,7 +76,8 @@ void loop() {
         lcdView->update(
             (systemFsm->getCurrentMode() == SystemOpMode::AUTOMATIC),
             systemFsm->getWindowTargetPercentage(),
-            systemFsm->getCurrentTemperature()
+            systemFsm->getCurrentTemperature(),
+            systemFsm->isSystemInAlarmState()
         );
     }
 }

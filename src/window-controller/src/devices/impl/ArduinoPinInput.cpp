@@ -89,7 +89,7 @@ int ArduinoPinInput::getPotentiometerPercentage() {
 
     // Map from practical ADC range to percentage range (0-100)
     // Use a slightly reduced range to account for physical limitations
-    int mappedValue = map(averageRawValue, 10, 1013, 0, 100);
+    int mappedValue = map(averageRawValue, 15, 1013, 0, 100);
 
     // Constrain to ensure to never go outside 0-100 range
     return constrain(mappedValue, 0, 100);

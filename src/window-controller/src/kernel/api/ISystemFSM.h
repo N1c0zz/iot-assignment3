@@ -64,6 +64,13 @@ public:
      * @return Sentinel value (negative) if no valid temperature received
      */
     virtual float getCurrentTemperature() const = 0;
+
+    /**
+     * @brief Check if system is currently in ALARM state
+     * 
+     * @return true if system is in ALARM state, false otherwise
+     */
+    virtual bool isSystemInAlarmState() const = 0;
 };
 
 #endif // ISYSTEM_FSM_H

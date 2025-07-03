@@ -8,7 +8,7 @@ mode changes, manual window control, and alarm management.
 
 from flask import Blueprint, jsonify, request, current_app
 import logging
-from config.config import MODE_MANUAL, MODE_AUTOMATIC
+from config.config import MODE_MANUAL, MODE_AUTOMATIC, STATE_ALARM
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,12 @@ def set_mode_manual():
     """
     try:
         control_logic = get_control_logic()
+
+        # Check if system is in ALARM state
+        if control_logic.system_state == STATE_ALARM:
+            logger.info("Mode change to MANUAL blocked: system in ALARM state")
+            return jsonify({"message": "Cannot change mode: system in ALARM state"}), 200
+
         success = control_logic.set_mode(MODE_MANUAL)
         
         if success:
@@ -94,6 +100,12 @@ def set_mode_automatic():
     """
     try:
         control_logic = get_control_logic()
+
+        # Check if system is in ALARM state
+        if control_logic.system_state == STATE_ALARM:
+            logger.info("Mode change to AUTOMATIC blocked: system in ALARM state")
+            return jsonify({"message": "Cannot change mode: system in ALARM state"}), 200
+
         success = control_logic.set_mode(MODE_AUTOMATIC)
         
         if success:
@@ -181,7 +193,7 @@ def reset_alarm():
         success = control_logic.handle_alarm_reset()
         
         if success:
-            logger.info("System alarm reset via API")
+            logger.info("System alarm reset via dashboard")
             return jsonify({"message": "Alarm reset successful"}), 200
         else:
             logger.info("Alarm reset requested but system not in alarm state")

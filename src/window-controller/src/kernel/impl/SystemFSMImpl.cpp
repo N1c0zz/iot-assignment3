@@ -10,6 +10,7 @@ SystemFSMImpl::SystemFSMImpl(ServoMotor& servo, UserInputSource& input, ControlU
     , targetWindowPercentage(0)
     , receivedTemperature(INVALID_TEMPERATURE)
     , lastPhysicalPotReading(0)
+    , systemInAlarmState(false)
 {
     // Constructor intentionally minimal - initialization in setup()
 }
@@ -28,6 +29,10 @@ int SystemFSMImpl::getWindowTargetPercentage() const {
 
 float SystemFSMImpl::getCurrentTemperature() const {
     return receivedTemperature;
+}
+
+bool SystemFSMImpl::isSystemInAlarmState() const {
+    return systemInAlarmState;
 }
 
 void SystemFSMImpl::run() {
@@ -56,10 +61,10 @@ void SystemFSMImpl::run() {
             break;
 
         case SystemOpMode::AUTOMATIC:
-            if (event == FsmEvent::MODE_BUTTON_PRESSED) {
+            if (event == FsmEvent::MODE_BUTTON_PRESSED && !systemInAlarmState) {
                 serialLinkCtrl.sendModeChangedNotification(SystemOpMode::MANUAL);
                 handleStateTransition(SystemOpMode::MANUAL);
-            } else if (event == FsmEvent::SERIAL_CMD_MODE_MANUAL) {
+            } else if (event == FsmEvent::SERIAL_CMD_MODE_MANUAL && !systemInAlarmState) {
                 handleStateTransition(SystemOpMode::MANUAL);
                 serialLinkCtrl.sendAckModeChange(SystemOpMode::MANUAL);
             } else {
@@ -68,10 +73,10 @@ void SystemFSMImpl::run() {
             break;
 
         case SystemOpMode::MANUAL:
-            if (event == FsmEvent::MODE_BUTTON_PRESSED) {
+            if (event == FsmEvent::MODE_BUTTON_PRESSED && !systemInAlarmState) {
                 serialLinkCtrl.sendModeChangedNotification(SystemOpMode::AUTOMATIC);
                 handleStateTransition(SystemOpMode::AUTOMATIC);
-            } else if (event == FsmEvent::SERIAL_CMD_MODE_AUTO) {
+            } else if (event == FsmEvent::SERIAL_CMD_MODE_AUTO && !systemInAlarmState) {
                 handleStateTransition(SystemOpMode::AUTOMATIC);
                 serialLinkCtrl.sendAckModeChange(SystemOpMode::AUTOMATIC);
             } else {
@@ -105,6 +110,8 @@ void SystemFSMImpl::processSerialCommand(const String& command, FsmEvent& outEve
     } else if (command.startsWith(F("TEMP:"))) {
         outEvent = FsmEvent::SERIAL_CMD_SET_TEMP;
         receivedTemperature = command.substring(5).toFloat();
+    } else if (command.startsWith(F("ALARM_STATE:"))) {
+        systemInAlarmState = (command.substring(12).toInt() == 1);
     } else if (command.equalsIgnoreCase(F("MODE:AUTOMATIC"))) {
         outEvent = FsmEvent::SERIAL_CMD_MODE_AUTO;
     } else if (command.equalsIgnoreCase(F("MODE:MANUAL"))) {
@@ -169,6 +176,11 @@ void SystemFSMImpl::doStateActionAutomatic(FsmEvent event, int cmdValue) {
 void SystemFSMImpl::doStateActionManual(FsmEvent event, int cmdValue) {
     static unsigned long lastServoUpdateTime = 0;
     unsigned long currentTime = millis();
+
+    // Block manual controls if system is in ALARM state
+    if (systemInAlarmState) {
+        return;
+    }
     
     // Handle serial position commands (override potentiometer)
     if (event == FsmEvent::SERIAL_CMD_SET_POS && cmdValue >= 0 && cmdValue <= 100) {

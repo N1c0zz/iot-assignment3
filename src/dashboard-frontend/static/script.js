@@ -314,9 +314,12 @@ class TemperatureDashboard {
      * Update control panel based on system state
      */
     updateControlPanel(data) {
+        // Check if system is in alarm state
+        const isAlarmState = (data.system_state === 'ALARM');
+        
         // Update mode buttons state
-        this.elements.btnSetAuto.disabled = (data.system_mode === 'AUTOMATIC');
-        this.elements.btnSetManual.disabled = (data.system_mode === 'MANUAL');
+        this.elements.btnSetAuto.disabled = (data.system_mode === 'AUTOMATIC') || isAlarmState;
+        this.elements.btnSetManual.disabled = (data.system_mode === 'MANUAL') || isAlarmState;
 
         // Show/hide manual controls
         if (data.system_mode === 'MANUAL') {

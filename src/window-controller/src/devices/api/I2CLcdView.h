@@ -34,7 +34,7 @@ public:
     void clear() override;
     void displayBootingMessage() override;
     void displayReadyMessage() override;
-    void update(bool isAutoMode, int windowPercentage, float currentTemperature) override;
+    void update(bool isAutoMode, int windowPercentage, float currentTemperature, bool isAlarmState = false) override;
 
 private:
     LiquidCrystal_I2C lcd;              ///< I2C LCD library instance
@@ -44,6 +44,7 @@ private:
     bool prevIsAutoMode;                ///< Previously displayed mode
     int prevWindowPercentage;           ///< Previously displayed window position
     float prevCurrentTemperature;       ///< Previously displayed temperature
+    bool prevIsAlarmState;              ///< Previously displayed alarm state
     
     bool forceUpdate;                   ///< Flag to force complete display refresh
 
